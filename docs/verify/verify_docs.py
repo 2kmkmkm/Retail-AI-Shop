@@ -150,9 +150,13 @@ else:
     check('D.시드', '가격 전건 입력', _d3)
 
 # ── E. 채점표 20개 항목 → 산출물 추적 ────────────────────────────────
-plan = read(PLAN)
+if not os.path.exists(PLAN):
+    print('  (E. 기획서 HTML 없음 — 레포 단독 실행이면 정상, 기획서 근거는 스킵)')
+    plan = None
+else:
+    plan = read(PLAN)
 oas = read(os.path.join(DOCS,'openapi','openapi.yaml'))
-erd = read(os.path.join(DOCS,'ERD.md'))
+erd = read(os.path.join(DOCS,'제로픽_ERD.dbml'))
 api = read(os.path.join(DOCS,'API명세서.md'))
 evt = read(os.path.join(DOCS,'이벤트스키마.md'))
 sqls = "".join(read(os.path.join(DOCS,'sql',f)) for f in
@@ -164,8 +168,9 @@ RUBRIC = [
  ('핵심4 Config+LLM키 분리',    [(plan,'Config Server'),(plan,'LLM API 키')]),
  ('핵심5 OpenFeign 동기',       [(api,'stock/deduct'),(api,'OpenFeign')]),
  ('핵심6 Kafka 3종 이벤트',     [(evt,'product-viewed'),(evt,'cart-added'),(evt,'order-completed')]),
- ('핵심7 CRUD+재고차감',        [(oas,'/commerce-service/orders/{orderId}/pay'),(sqls,"'PENDING'")]),
- ('핵심8 DB분리+ERD',           [(erd,'Database per Service')]),
+ ('핵심7 CRUD+재고차감+주문취소', [(oas,'/commerce-service/orders/{orderId}/pay'),(oas,'/commerce-service/orders/{orderId}/cancel'),(sqls,"'PENDING'")]),
+ ('핵심7b 상품 CRUD',           [(api,'상품 등록'),(api,'상품 수정'),(api,'상품 삭제')]),
+ ('핵심8 DB분리+ERD+영양컬럼',  [(erd,'Database per Service'),(erd,'protein_g'),(erd,'nutrition_facts_url')]),
  ('핵심9 Docker Compose',       [(plan,'docker-compose')]),
  ('핵심10 챗봇+측정',           [(oas,'/recommendation-service/chat'),(plan,'측정 지표')]),
  ('선택1 K8s',                  [(plan,'Kubernetes')]),
@@ -177,13 +182,17 @@ RUBRIC = [
  ('선택7 CI/CD',                [(plan,'GitHub Actions')]),
  ('선택8 추천 API 부하테스트',  [(plan,'부하 테스트'),(oas,'/recommendations/{memberId}')]),
  ('선택9 로그 중앙화 EFK',      [(plan,'Fluent Bit')]),
- ('선택10 자연어 검색',         [(oas,'/recommendation-service/search')]),
+ ('선택10 자연어 검색+행동수신', [(oas,'/recommendation-service/search'),(oas,'/commerce-service/behaviors')]),
 ]
 for item, conds in RUBRIC:
-    check('E.채점표', item, lambda conds=conds:
-        (lambda miss: '근거 확인' if not miss else (_ for _ in ()).throw(
-            RuntimeError(f'근거 문자열 없음: {miss}')))(
-            [needle for hay, needle in conds if needle not in hay]))
+    def _fn(conds=conds):
+        usable = [(hay, needle) for hay, needle in conds if hay is not None]
+        if not usable:
+            return '스킵(기획서 근거)'
+        miss = [needle for hay, needle in usable if needle not in hay]
+        assert not miss, f'근거 문자열 없음: {miss}'
+        return '근거 확인'
+    check('E.채점표', item, _fn)
 
 # ── 출력 ─────────────────────────────────────────────────────────────
 print()
@@ -191,9 +200,9 @@ cur = None
 ok = fail = 0
 for section, name, passed, detail in results:
     if section != cur:
-        print(f"\n[{section}]"); cur = section
+        print("\n[" + section + "]"); cur = section
     mark = 'PASS' if passed else 'FAIL'
     ok += passed; fail += (not passed)
     print(f"  {mark}  {name}" + (f"  — {detail}" if detail else ""))
-print(f"\n{'='*60}\n합계: PASS {ok} / FAIL {fail}")
+print("\n" + "=" * 60 + f"\n합계: PASS {ok} / FAIL {fail}")
 sys.exit(1 if fail else 0)

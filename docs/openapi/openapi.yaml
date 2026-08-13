@@ -171,6 +171,13 @@ paths:
           description: 삭제 완료
         '404':
           description: 없는 상품
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   /product-service/products/compare:
     get:
       tags:
