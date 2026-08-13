@@ -13,6 +13,12 @@ CREATE TABLE product (
   kcal                DECIMAL(7,1) NOT NULL,
   sugar_g             DECIMAL(6,2) NOT NULL,
   carb_g              DECIMAL(6,2) NOT NULL,
+  protein_g            DECIMAL(6,2),
+  fat_g                DECIMAL(6,2),
+  sodium_mg            DECIMAL(8,2),
+  serving_size         DECIMAL(7,1),
+  serving_unit         VARCHAR(10),
+  nutrition_facts_url  VARCHAR(255),
   verification_source VARCHAR(255),
   created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -111,6 +111,19 @@ paths:
                   items:
                     type: string
                   description: 감미료 마스터 15종의 이름
+                proteinG:
+                  type: number
+                fatG:
+                  type: number
+                sodiumMg:
+                  type: number
+                servingSize:
+                  type: number
+                servingUnit:
+                  type: string
+                nutritionFactsUrl:
+                  type: string
+                  description: 영양성분표 원본 이미지 URL
       responses:
         '201':
           description: 등록 완료 — 생성된 상품 반환
@@ -664,6 +677,19 @@ components:
           type: array
           items:
             type: string
+        proteinG:
+          type: number
+        fatG:
+          type: number
+        sodiumMg:
+          type: number
+        servingSize:
+          type: number
+        servingUnit:
+          type: string
+        nutritionFactsUrl:
+          type: string
+          description: 영양성분표 원본 이미지 URL
     ProductDetail:
       allOf:
       - $ref: '#/components/schemas/Product'
