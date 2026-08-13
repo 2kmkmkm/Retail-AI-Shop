@@ -33,8 +33,9 @@ export function StoreProvider({ children }) {
   const addCart = useCallback((product, qty = 1) => {
     setCart((c) => ({ ...c, [product.id]: (c[product.id] || 0) + qty }))
     emit('CART_ADDED', product, { qty })
+    api.syncCartAdd(member?.memberId || 1, product.id, qty)  // 백엔드가 cart_item 저장 + 이벤트 발행
     showToast(`🛒 ${product.name.slice(0, 18)} 담았어요`)
-  }, [emit, showToast])
+  }, [emit, showToast, member])
 
   const setPrefs = useCallback(async (next) => {
     setPrefsState(next)

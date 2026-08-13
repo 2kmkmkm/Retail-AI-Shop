@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../context/StoreContext.jsx'
+import * as api from '../api.js'
 import { getProducts } from '../utils/productStore.js'
 import CheckoutModal from '../components/CheckoutModal.jsx'
 
@@ -15,8 +16,10 @@ export default function Cart() {
     if (qty <= 0) {
       const { [id]: _, ...rest } = cart
       setCart(rest)
+      api.syncCartRemove(id)          // 서버 카트에서도 제거 (베스트에포트)
     } else {
       setCart({ ...cart, [id]: qty })
+      api.syncCartUpdate(id, qty)     // 서버 수량 동기화
     }
   }
 
