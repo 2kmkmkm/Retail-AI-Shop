@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  service-discovery:
+    build: ./service-discovery
+    container_name: service-discovery
+    ports:
+      - "8761:8761"
+
+  config-service:
+    build: ./config-service
+    container_name: config-service
+    ports:
+      - "8888:8888"
+    depends_on:
+      - service-discovery
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-discovery:8761/eureka
+
+  apigateway-service:
+    build: ./apigateway-service
+    container_name: apigateway-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - service-discovery
+      - config-service
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-discovery:8761/eureka
