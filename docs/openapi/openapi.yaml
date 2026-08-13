@@ -632,6 +632,44 @@ paths:
           description: 없는 주문
         '409':
           description: 취소 불가 상태 (이미 CANCELLED 등)
+  /commerce-service/carts/{cartItemId}:
+    parameters:
+    - name: cartItemId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      tags:
+      - commerce
+      summary: 장바구니 수량 변경 — FR-06 CRUD의 U
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - qty
+              properties:
+                qty:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 변경 완료
+        '404':
+          description: 없는 항목
+    delete:
+      tags:
+      - commerce
+      summary: 장바구니 항목 삭제 — FR-06 CRUD의 D
+      responses:
+        '204':
+          description: 삭제 완료
+        '404':
+          description: 없는 항목
 components:
   schemas:
     Product:
