@@ -4,6 +4,9 @@ import { useStore } from '../context/StoreContext.jsx'
 import { getProducts } from '../utils/productStore.js'
 import { scoreProducts } from '../utils/mock.js'
 import * as api from '../api.js'
+
+// 자연어 조건 패턴 — "말티톨 없는", "5천원 이하" 같은 질의는 자연어 검색(선택 10)으로 보낸다
+const NL_PATTERN = /없|빼|제외|이하|이상|미만|안 ?들어|아래/
 import FilterSidebar from '../components/FilterSidebar.jsx'
 import ProductCard from '../components/ProductCard.jsx'
 import DetailModal from '../components/DetailModal.jsx'
@@ -21,8 +24,20 @@ export default function Shop() {
   const [buying, setBuying] = useState(null)
 
   // 목록 조회 — 백엔드가 있으면 서버 필터, 없으면 시드 필터 (api 폴백)
+  const [nlInfo, setNlInfo] = useState(null)
   useEffect(() => {
     let alive = true
+    if (q && NL_PATTERN.test(q)) {
+      // 자연어 질의 → 조건 추출 검색 (POST /recommendation-service/search)
+      api.nlSearch(q).then((res) => {
+        if (!alive) return
+        const ids = (res.products || []).map((x) => x.productId)
+        setNlInfo(res.reply || null)
+        setProducts(getProducts().filter((p) => ids.includes(p.id)))
+      })
+      return () => { alive = false }
+    }
+    setNlInfo(null)
     api.fetchProducts({
       category: filters.category || undefined,
       sweetenerExclude: prefs.banSw.join(',') || undefined,
@@ -66,6 +81,8 @@ export default function Shop() {
             <option value="kcal">낮은 칼로리순</option>
           </select>
         </div>
+        {nlInfo && <div className="hint" style={{ background: 'var(--primary-soft)', borderRadius: 10, padding: '8px 12px' }}>
+          🔎 자연어 검색 — {nlInfo}</div>}
         <div className="hint">
           기본 정렬은 <b>추천순</b> — {member ? `${member.name}님의` : '회원님의'} 행동·조건이 반영돼요 ·
           카드의 <b>+비교</b>로 원하는 만큼 나란히 볼 수 있어요

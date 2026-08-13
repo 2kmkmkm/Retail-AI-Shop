@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '../context/StoreContext.jsx'
 import * as api from '../api.js'
 
@@ -6,9 +6,16 @@ export default function Orders() {
   const { member } = useStore()
   const [orders, setOrders] = useState([])
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api.fetchOrders(member?.memberId || 1).then((data) => setOrders(Array.isArray(data) ? data : []))
   }, [member])
+  useEffect(() => { load() }, [load])
+
+  const cancel = async (o) => {
+    if (!window.confirm(o.orderNo + ' 주문을 취소할까요?' + (o.status === 'PAID' ? ' (재고가 복구됩니다)' : ''))) return
+    await api.cancelOrder(o.orderId)
+    load()
+  }
 
   return (
     <div className="pagewrap">
@@ -27,6 +34,9 @@ export default function Orders() {
           </div>
           <span className={`status ${o.status}`}>{o.status}</span>
           <div className="rp num">{(o.totalPrice || 0).toLocaleString()}원</div>
+          {(o.status === 'PENDING' || o.status === 'PAID') && (
+            <button className="delb" onClick={() => cancel(o)}>주문 취소</button>
+          )}
         </div>
       ))}
     </div>

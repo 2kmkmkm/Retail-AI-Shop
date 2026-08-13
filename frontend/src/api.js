@@ -65,6 +65,9 @@ export const createOrder = (body) =>
 export const payOrder = (orderId, body) =>
   tryApi(() => api.post(`/commerce-service/orders/${orderId}/pay`, body), () => mock.payOrder(orderId, body))
 
+export const cancelOrder = (orderId) =>
+  tryApi(() => api.post(`/commerce-service/orders/${orderId}/cancel`), () => mock.cancelOrder(orderId))
+
 export const fetchOrders = (memberId) =>
   tryApi(() => api.get('/commerce-service/orders', { params: { memberId } }), () => mock.fetchOrders())
 
@@ -103,3 +106,8 @@ export const postRecoClick = (body) =>
       localStorage.setItem('zp_reco_clicks', JSON.stringify(all.slice(-500)))
     } catch (e) { /* ignore */ }
   })
+
+// 자연어 상품 검색 (선택 10) — 조건 추출 후 상품 반환. 폴백은 챗봇과 같은 규칙 파서.
+export const nlSearch = (message) =>
+  tryApi(() => api.post('/recommendation-service/search', { message }),
+    () => mock.chat(store.getProducts(), message))

@@ -92,6 +92,13 @@ export function payOrder(orderId, { paymentMethod }) {
   localStorage.setItem('zp_orders', JSON.stringify(all))
   return o
 }
+export function cancelOrder(orderId) {
+  const all = orders()
+  const o = all.find((x) => x.orderId === Number(orderId))
+  if (o && o.status !== 'CANCELLED') { o.status = 'CANCELLED'; o.cancelledAt = new Date().toISOString() }
+  localStorage.setItem('zp_orders', JSON.stringify(all))
+  return o
+}
 export function fetchOrders() { return orders().slice().reverse() }
 
 /* ── 챗봇 — 규칙 기반 조건 추출 (실서비스 폴백과 같은 발상) ── */
