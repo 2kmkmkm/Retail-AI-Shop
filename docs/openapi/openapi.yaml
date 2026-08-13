@@ -69,6 +69,51 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Product'
+    post:
+      tags:
+      - product
+      summary: 상품 등록 (관리자) — 핵심 7 CRUD의 C
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &id001
+              type: object
+              required:
+              - name
+              - brand
+              - category
+              - price
+              - stock
+              properties:
+                name:
+                  type: string
+                brand:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: integer
+                stock:
+                  type: integer
+                claimType:
+                  type: string
+                kcal:
+                  type: number
+                sugarG:
+                  type: number
+                carbG:
+                  type: number
+                imageUrl:
+                  type: string
+                sweeteners:
+                  type: array
+                  items:
+                    type: string
+                  description: 감미료 마스터 15종의 이름
+      responses:
+        '201':
+          description: 등록 완료 — 생성된 상품 반환
   /product-service/products/{id}:
     get:
       tags:
@@ -90,6 +135,29 @@ paths:
                 $ref: '#/components/schemas/ProductDetail'
         '404':
           description: 없음
+    put:
+      tags:
+      - product
+      summary: 상품 수정 (관리자) — 가격·재고 등, 핵심 7 CRUD의 U
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id001
+      responses:
+        '200':
+          description: 수정 완료
+        '404':
+          description: 없는 상품
+    delete:
+      tags:
+      - product
+      summary: 상품 삭제 (관리자) — 핵심 7 CRUD의 D
+      responses:
+        '204':
+          description: 삭제 완료
+        '404':
+          description: 없는 상품
   /product-service/products/compare:
     get:
       tags:

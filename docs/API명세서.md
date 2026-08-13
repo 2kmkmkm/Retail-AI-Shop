@@ -20,6 +20,9 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 |---|---|---|
 | GET | `/product-service/products` | 목록 — category·sweetenerExclude·sugarMax·q·sort 필터 |
 | GET | `/product-service/products/{id}` | 상세 |
+| POST | `/product-service/products` | 상품 등록 (관리자 화면) — 핵심 7 CRUD |
+| PUT | `/product-service/products/{id}` | 상품 수정 — 가격·재고 등 (관리자 화면) |
+| DELETE | `/product-service/products/{id}` | 상품 삭제 (관리자 화면) |
 | GET | `/product-service/products/compare?ids=1,2,3` | 영양성분 비교 (개수 제한 없음) |
 | PUT | `/product-service/products/{id}/stock/deduct` | **내부 전용** — commerce 가 OpenFeign 으로 호출. Gateway 비노출. 재고 부족 시 409 |
 
