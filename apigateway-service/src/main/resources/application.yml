@@ -1,0 +1,30 @@
+server:
+  port: 8000
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+spring:
+  application:
+    name: apigateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: product-service
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/product-service/**
+            - id: commerce-service
+              uri: lb://COMMERCE-SERVICE
+              predicates:
+                - Path=/commerce-service/**
+            - id: recommendation-service
+              uri: lb://RECOMMENDATION-SERVICE
+              predicates:
+                - Path=/recommendation-service/**
