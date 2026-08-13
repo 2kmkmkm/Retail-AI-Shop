@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../api.js'
 import { loadEvents, clearEvents } from '../utils/events.js'
+import { getProducts } from '../utils/productStore.js'
+import { CATEGORIES } from '../data/seed.js'
 
 const TOPIC = { PRODUCT_VIEWED: 'product-viewed', CART_ADDED: 'cart-added', ORDER_COMPLETED: 'order-completed' }
 const TCLS = { PRODUCT_VIEWED: 'viewed', CART_ADDED: 'cart', ORDER_COMPLETED: 'order' }
@@ -12,7 +14,9 @@ const ADMIN_ID = 'admin'
 const ADMIN_PW = 'zeropick5!'
 
 export default function Admin() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('zp_admin') === '1')
+  const [authed, setAuthed] = useState(() =>
+    sessionStorage.getItem('zp_admin') === '1' ||
+    new URLSearchParams(window.location.search).get('key') === ADMIN_PW)
   if (!authed) return <Gate onPass={() => { sessionStorage.setItem('zp_admin', '1'); setAuthed(true) }} />
   return <AdminConsole onLogout={() => { sessionStorage.removeItem('zp_admin'); setAuthed(false) }} />
 }
@@ -46,7 +50,7 @@ function Gate({ onPass }) {
 }
 
 function AdminConsole({ onLogout }) {
-  const [tab, setTab] = useState('stats')
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'stats')
   const [tick, setTick] = useState(0)
   const [metrics, setMetrics] = useState(null)
 
@@ -72,6 +76,8 @@ function AdminConsole({ onLogout }) {
           <div className="grp">모니터링</div>
           <button className={tab === 'stats' ? 'on' : ''} onClick={() => setTab('stats')}>📊 성과 대시보드</button>
           <button className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')}>📡 이벤트 로그</button>
+          <div className="grp">운영</div>
+          <button className={tab === 'products' ? 'on' : ''} onClick={() => setTab('products')}>📦 상품 · 재고 관리</button>
           <div className="grp">계정</div>
           <button onClick={onLogout}>🚪 로그아웃</button>
         </nav>
@@ -79,7 +85,7 @@ function AdminConsole({ onLogout }) {
       </aside>
       <main className="adm-main">
         <div className="adm-top">
-          <h1>{tab === 'stats' ? '성과 대시보드' : '이벤트 로그'}</h1>
+          <h1>{{ stats: '성과 대시보드', log: '이벤트 로그', products: '상품 · 재고 관리' }[tab]}</h1>
           <span className="live"><span className="dot" />LIVE</span>
           <div className="actions">
             {ev.some((e) => e.demo) && <button className="btn" onClick={() => { clearEvents(true); setTick((t) => t + 1) }}>예시 지우기</button>}
@@ -87,9 +93,9 @@ function AdminConsole({ onLogout }) {
           </div>
         </div>
         <div className="adm-content">
-          {tab === 'stats'
-            ? <Stats ev={ev} v={v} c={c} o={o} metrics={metrics} />
-            : <Log ev={ev} />}
+          {tab === 'stats' && <Stats ev={ev} v={v} c={c} o={o} metrics={metrics} />}
+          {tab === 'log' && <Log ev={ev} />}
+          {tab === 'products' && <Products />}
         </div>
       </main>
     </div>
@@ -260,6 +266,113 @@ function Log({ ev }) {
       <div className="footnote">
         payload 는 <code>docs/avro/</code> 스키마 3종과 같은 구조 (키 memberId · 파티션 3 · 컨슈머 그룹 reco-service).
         회색 행은 형태 예시 — 우측 상단 버튼으로 지울 수 있다.
+      </div>
+    </>
+  )
+}
+
+/* ── 상품 · 재고 관리 — 핵심 7 CRUD 를 조작하는 관리자 화면 ── */
+function Products() {
+  const [q, setQ] = useState('')
+  const [rows, setRows] = useState(getProducts)
+  const [draft, setDraft] = useState(null)   // 등록 폼 상태 (null = 접힘)
+  const [edits, setEdits] = useState({})     // { id: { price, stock } }
+  const refresh = () => setRows(getProducts())
+
+  const filtered = rows.filter((p) =>
+    !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.brand.toLowerCase().includes(q.toLowerCase()))
+
+  const saveRow = async (p) => {
+    const patch = edits[p.id]
+    if (!patch) return
+    await api.updateProduct(p.id, { ...p, price: Number(patch.price ?? p.price), stock: Number(patch.stock ?? p.stock) })
+    setEdits((e) => { const next = { ...e }; delete next[p.id]; return next })
+    refresh()
+  }
+  const removeRow = async (p) => {
+    if (!window.confirm('"' + p.name + '" 을(를) 삭제할까요?')) return
+    await api.deleteProduct(p.id)
+    refresh()
+  }
+  const create = async () => {
+    if (!draft.name || !draft.price) return
+    await api.createProduct({ ...draft, sweeteners: (draft.sweeteners || '').split(',').map((x) => x.trim()).filter(Boolean) })
+    setDraft(null)
+    refresh()
+  }
+
+  return (
+    <>
+      <div className="acard" style={{ marginBottom: 14 }}>
+        <div className="hd">
+          <b>상품 {filtered.length.toLocaleString()}개</b>
+          <span>POST · PUT · DELETE /product-service/products — 핵심 7 CRUD</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <input className="au" style={{ width: 220, padding: '7px 11px', fontSize: 12.5 }}
+              placeholder="상품명·브랜드 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button className="btn" style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+              onClick={() => setDraft(draft ? null : { name: '', brand: '', category: CATEGORIES[0], price: '', stock: 30, kcal: 0, sugarG: 0, carbG: 0, imageUrl: '', sweeteners: '' })}>
+              {draft ? '등록 취소' : '+ 상품 등록'}
+            </button>
+          </div>
+        </div>
+        {draft && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, padding: '6px 0 4px' }}>
+            <div><div className="mh5">상품명 *</div><input className="au" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+            <div><div className="mh5">브랜드</div><input className="au" value={draft.brand} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} /></div>
+            <div><div className="mh5">카테고리</div>
+              <select className="au" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
+                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              </select></div>
+            <div><div className="mh5">가격 *</div><input className="au" type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} /></div>
+            <div><div className="mh5">재고</div><input className="au" type="number" value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} /></div>
+            <div><div className="mh5">당류(g)</div><input className="au" type="number" value={draft.sugarG} onChange={(e) => setDraft({ ...draft, sugarG: e.target.value })} /></div>
+            <div><div className="mh5">감미료 (쉼표 구분)</div><input className="au" placeholder="알룰로스, 수크랄로스" value={draft.sweeteners} onChange={(e) => setDraft({ ...draft, sweeteners: e.target.value })} /></div>
+            <div><div className="mh5">이미지 URL</div><input className="au" value={draft.imageUrl} onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })} /></div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <button className="primaryb" style={{ width: 200 }} onClick={create}>등록하기</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="acard" style={{ padding: 0 }}>
+        <div style={{ maxHeight: 540, overflow: 'auto' }}>
+          <table className="adm">
+            <thead>
+              <tr><th style={{ width: 46 }}></th><th>상품</th><th style={{ width: 100 }}>카테고리</th>
+                  <th style={{ width: 110 }}>가격</th><th style={{ width: 84 }}>재고</th><th style={{ width: 130 }}></th></tr>
+            </thead>
+            <tbody>
+              {filtered.slice(0, 100).map((p) => {
+                const e = edits[p.id] || {}
+                const dirty = e.price != null || e.stock != null
+                return (
+                  <tr key={p.id}>
+                    <td>{p.img && <img src={p.img} loading="lazy" alt="" onError={(ev) => ev.target.remove()}
+                      style={{ width: 30, height: 30, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--line)', background: '#fff' }} />}</td>
+                    <td><div style={{ color: 'var(--ink)', fontWeight: 600, maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--faint)' }}>{p.brand}</div></td>
+                    <td style={{ fontSize: 12 }}>{p.cat}</td>
+                    <td><input className="au num" style={{ padding: '5px 8px', fontSize: 12 }} type="number"
+                      value={e.price ?? p.price} onChange={(ev) => setEdits({ ...edits, [p.id]: { ...e, price: ev.target.value } })} /></td>
+                    <td><input className="au num" style={{ padding: '5px 8px', fontSize: 12 }} type="number"
+                      value={e.stock ?? p.stock} onChange={(ev) => setEdits({ ...edits, [p.id]: { ...e, stock: ev.target.value } })} /></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button className="btn" disabled={!dirty}
+                        style={dirty ? { background: 'var(--primary)', color: '#fff', border: 'none' } : { opacity: .45 }}
+                        onClick={() => saveRow(p)}>저장</button>{' '}
+                      <button className="btn" style={{ color: 'var(--red)' }} onClick={() => removeRow(p)}>삭제</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="footnote">
+        검색 결과 상위 100개만 표시. 백엔드 미가동 시 변경분은 로컬 오버레이에 기록돼 쇼핑몰 화면에도 즉시 반영된다 —
+        product-service 가 올라오면 실제 CRUD API 를 호출한다.
       </div>
     </>
   )

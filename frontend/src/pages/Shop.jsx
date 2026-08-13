@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useStore } from '../context/StoreContext.jsx'
-import { seedProducts } from '../data/seed.js'
+import { getProducts } from '../utils/productStore.js'
 import { scoreProducts } from '../utils/mock.js'
 import * as api from '../api.js'
 import FilterSidebar from '../components/FilterSidebar.jsx'
@@ -16,7 +16,7 @@ export default function Shop() {
   const q = params.get('q') || ''
   const [filters, setFilters] = useState({ category: null, minKcal: 0, maxKcal: 999 })
   const [sort, setSort] = useState('reco')
-  const [products, setProducts] = useState(seedProducts)
+  const [products, setProducts] = useState(getProducts)
   const [detail, setDetail] = useState(null)
   const [buying, setBuying] = useState(null)
 
@@ -73,7 +73,13 @@ export default function Shop() {
         </div>
         <div className="grid">
           {sorted.map((p) => (
-            <ProductCard key={p.id} p={p} reco={recoTop.has(p.id)} onDetail={setDetail} onBuy={setBuying} />
+            <ProductCard key={p.id} p={p} reco={recoTop.has(p.id)}
+              onDetail={(prod) => {
+                // 추천 노출 상품 클릭 → reco_click 적재 (클릭률, 선택 6)
+                if (recoTop.has(prod.id)) api.postRecoClick({ memberId: member?.memberId || 1, productId: prod.id })
+                setDetail(prod)
+              }}
+              onBuy={setBuying} />
           ))}
         </div>
         {sorted.length === 0 && <div className="empty">조건에 맞는 상품이 없어요 — 필터를 풀어보세요</div>}

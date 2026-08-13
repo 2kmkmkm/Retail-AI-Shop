@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { seedProducts } from './data/seed.js'
+import * as store from './utils/productStore.js'
 import * as mock from './utils/mock.js'
 
 // 게이트웨이 라우팅 규칙(/<service-name>/**) 그대로 호출한다.
@@ -32,15 +33,24 @@ async function tryApi(call, fallback) {
 /* ── product-service ── */
 export const fetchProducts = (params) =>
   tryApi(() => api.get('/product-service/products', { params }),
-    () => mock.filterProducts(seedProducts, params))
+    () => mock.filterProducts(store.getProducts(), params))
 
 export const fetchProduct = (id) =>
   tryApi(() => api.get(`/product-service/products/${id}`),
-    () => seedProducts.find((p) => p.id === Number(id)))
+    () => store.getProducts().find((p) => p.id === Number(id)))
 
 export const compareProducts = (ids) =>
   tryApi(() => api.get('/product-service/products/compare', { params: { ids: ids.join(',') } }),
-    () => seedProducts.filter((p) => ids.includes(p.id)))
+    () => store.getProducts().filter((p) => ids.includes(p.id)))
+
+export const createProduct = (body) =>
+  tryApi(() => api.post('/product-service/products', body), () => store.addProduct(body))
+
+export const updateProduct = (id, body) =>
+  tryApi(() => api.put(`/product-service/products/${id}`, body), () => store.updateProduct(id, body))
+
+export const deleteProduct = (id) =>
+  tryApi(() => api.delete(`/product-service/products/${id}`), () => store.deleteProduct(id))
 
 /* ── commerce-service ── */
 export const join = (body) =>
@@ -75,11 +85,21 @@ export const savePreferences = (body) =>
 
 export const fetchRecommendations = (memberId) =>
   tryApi(() => api.get(`/recommendation-service/recommendations/${memberId}`),
-    () => mock.recommend(seedProducts))
+    () => mock.recommend(store.getProducts()))
 
 export const chat = (body) =>
   tryApi(() => api.post('/recommendation-service/chat', body),
-    () => mock.chat(seedProducts, body.message))
+    () => mock.chat(store.getProducts(), body.message))
 
 export const fetchMetrics = () =>
   tryApi(() => api.get('/recommendation-service/metrics'), () => mock.metrics())
+
+// 추천 상품 클릭 — 클릭률(선택 6) 집계용. 실패 시 로컬 기록으로 폴백.
+export const postRecoClick = (body) =>
+  api.post('/recommendation-service/click', body).catch(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem('zp_reco_clicks') || '[]')
+      all.push({ ...body, at: new Date().toISOString() })
+      localStorage.setItem('zp_reco_clicks', JSON.stringify(all.slice(-500)))
+    } catch (e) { /* ignore */ }
+  })

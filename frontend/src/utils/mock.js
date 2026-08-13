@@ -140,9 +140,13 @@ export function metrics() {
   const ev = loadEvents()
   const n = (t) => ev.filter((e) => e.type === t).length
   const v = n('PRODUCT_VIEWED'), c = n('CART_ADDED'), o = n('ORDER_COMPLETED')
+  let clicks = 0
+  try { clicks = JSON.parse(localStorage.getItem('zp_reco_clicks') || '[]').length } catch { /* ignore */ }
   return {
     viewed: v, cartAdded: c, ordered: o,
     conversionRate: v ? Math.round((o / v) * 1000) / 10 : 0,
+    recoClicks: clicks,
+    clickRate: v ? Math.round((clicks / v) * 1000) / 10 : 0,
     fallbackRate: 100, // 폴백 모드에서는 전부 규칙 기반
     events: ev,
   }

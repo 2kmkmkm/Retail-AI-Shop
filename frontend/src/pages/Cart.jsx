@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useStore } from '../context/StoreContext.jsx'
-import { seedProducts } from '../data/seed.js'
+import { getProducts } from '../utils/productStore.js'
 import CheckoutModal from '../components/CheckoutModal.jsx'
 
 export default function Cart() {
   const { cart, setCart } = useStore()
   const [checkout, setCheckout] = useState(false)
   const items = Object.entries(cart)
-    .map(([id, qty]) => ({ product: seedProducts.find((p) => p.id === Number(id)), qty }))
+    .map(([id, qty]) => ({ product: getProducts().find((p) => p.id === Number(id)), qty }))
     .filter((x) => x.product)
   const total = items.reduce((a, x) => a + x.product.price * x.qty, 0)
 

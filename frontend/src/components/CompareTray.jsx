@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useStore } from '../context/StoreContext.jsx'
-import { seedProducts } from '../data/seed.js'
+import { getProducts } from '../utils/productStore.js'
 import * as api from '../api.js'
 
 export default function CompareTray() {
   const { compare, toggleCompare, setCompare, addCart, showToast } = useStore()
   const [rows, setRows] = useState(null)
-  const items = compare.map((id) => seedProducts.find((p) => p.id === id)).filter(Boolean)
+  const items = compare.map((id) => getProducts().find((p) => p.id === id)).filter(Boolean)
 
   const openCompare = async () => {
     const data = await api.compareProducts(compare)
