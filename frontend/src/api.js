@@ -16,17 +16,29 @@ let mockMode = false
 const mockListeners = new Set()
 export const isMock = () => mockMode
 export const onMockChange = (fn) => { mockListeners.add(fn); return () => mockListeners.delete(fn) }
-function setMock() {
-  if (!mockMode) { mockMode = true; mockListeners.forEach((fn) => fn(true)) }
+function setMock(v = true) {
+  if (mockMode !== v) { mockMode = v; mockListeners.forEach((fn) => fn(v)) }
+}
+
+// vite 프록시는 게이트웨이가 죽어 있으면 에러 대신 index.html 을 200 으로 돌려준다.
+// JSON 이 아닌 응답은 "백엔드 없음"으로 간주해 폴백한다.
+function isJsonResponse(res) {
+  const ct = String(res.headers?.['content-type'] || '')
+  return ct.includes('application/json') || (typeof res.data === 'object' && res.data !== null)
 }
 
 async function tryApi(call, fallback) {
   try {
     const res = await call()
+    if (!isJsonResponse(res)) { setMock(true); return fallback() }
+    setMock(false)   // 진짜 백엔드 JSON 응답 — 폴백 모드 해제
     return res.data
   } catch (e) {
-    setMock()
-    return fallback()
+    if (!e.response || e.response.status >= 500) {
+      setMock(true)  // 네트워크 단절·프록시/서버 5xx 는 폴백
+      return fallback()
+    }
+    throw e          // 4xx(401·409 등)는 실제 업무 응답 — 화면 로직이 처리
   }
 }
 

@@ -20,7 +20,10 @@ export default function Shop() {
   const [filters, setFilters] = useState({ category: null, minKcal: 0, maxKcal: 999 })
   const [sort, setSort] = useState('reco')
   const [products, setProducts] = useState(getProducts)
-  const [detail, setDetail] = useState(null)
+  const [detail, setDetail] = useState(() => {
+    const pid = new URLSearchParams(window.location.search).get('product')
+    return pid ? getProducts().find((x) => x.id === Number(pid)) || null : null
+  })
   const [buying, setBuying] = useState(null)
 
   // 목록 조회 — 백엔드가 있으면 서버 필터, 없으면 시드 필터 (api 폴백)
@@ -30,11 +33,11 @@ export default function Shop() {
     if (q && NL_PATTERN.test(q)) {
       // 자연어 질의 → 조건 추출 검색 (POST /recommendation-service/search)
       api.nlSearch(q).then((res) => {
-        if (!alive) return
+        if (!alive || !res) return
         const ids = (res.products || []).map((x) => x.productId)
         setNlInfo(res.reply || null)
         setProducts(getProducts().filter((p) => ids.includes(p.id)))
-      })
+      }).catch(() => {})
       return () => { alive = false }
     }
     setNlInfo(null)
@@ -44,7 +47,7 @@ export default function Shop() {
       kcalMin: filters.minKcal || undefined,
       kcalMax: filters.maxKcal < 999 ? filters.maxKcal : undefined,
       q: q || undefined,
-    }).then((data) => { if (alive) setProducts(Array.isArray(data) ? data : data?.content || []) })
+    }).then((data) => { if (alive && data) setProducts(Array.isArray(data) ? data : data?.content || []) }).catch(() => {})
     return () => { alive = false }
   }, [filters, prefs.banSw, q])
 

@@ -186,9 +186,10 @@ function Stats({ ev, v, c, o, metrics }) {
                   <b className="num" style={{ marginLeft: 'auto', color: 'var(--ink)' }}>{nv}</b>
                 </div>
               ))}
-              {metrics?.fallbackRate != null && (
-                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>
-                  챗봇 폴백률 <b className="num">{metrics.fallbackRate}%</b>
+              {metrics && (
+                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4, lineHeight: 1.9 }}>
+                  추천 클릭 <b className="num">{metrics.recoClicks ?? 0}회</b> · 클릭률 <b className="num">{metrics.clickRate ?? 0}%</b><br />
+                  챗봇 폴백률 <b className="num">{metrics.fallbackRate ?? '—'}%</b> · 추천 응답시간 <b className="num">{metrics.avgLatencyMs ?? '—'}ms</b>
                 </div>
               )}
             </div>

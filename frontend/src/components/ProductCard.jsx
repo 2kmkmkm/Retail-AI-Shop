@@ -22,8 +22,9 @@ export default function ProductCard({ p, reco, onDetail, onBuy }) {
       <div className="badges">
         {reco && <span className="bdg airec">✨ 추천</span>}
         {p.sugar === 0 && p.sw.length === 0 && <span className="bdg none">감미료 무첨가</span>}
-        {p.sw.slice(0, 3).map((s) => <span key={s} className="bdg">{s}</span>)}
-        {hasBan && <span className="bdg" style={{ background: '#FEF2F2', color: 'var(--red)' }}>제외 감미료 포함</span>}
+        {p.sw.slice(0, 2).map((s) => <span key={s} className="bdg">{s}</span>)}
+        {p.sw.length > 2 && <span className="bdg" style={{ background: 'var(--line2)', color: 'var(--muted)' }}>+{p.sw.length - 2}</span>}
+        {hasBan && <span className="bdg" style={{ background: '#FEF2F2', color: 'var(--red)' }}>제외 감미료</span>}
       </div>
       <div className="prow">
         <span className="krw num">{p.price.toLocaleString()}<small> KRW</small></span>
