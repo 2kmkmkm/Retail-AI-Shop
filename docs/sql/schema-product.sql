@@ -31,6 +31,7 @@ CREATE TABLE sweetener (
 CREATE TABLE product_sweetener (
   product_id   BIGINT NOT NULL,
   sweetener_id BIGINT NOT NULL,
+  amount_g   DECIMAL(6,2),
   PRIMARY KEY (product_id, sweetener_id),
   CONSTRAINT fk_ps_product   FOREIGN KEY (product_id)   REFERENCES product(id),
   CONSTRAINT fk_ps_sweetener FOREIGN KEY (sweetener_id) REFERENCES sweetener(id)

@@ -34,6 +34,7 @@ Table sweetener {
 Table product_sweetener {
   product_id bigint [pk, ref: > product.id]
   sweetener_id bigint [pk, ref: > sweetener.id]
+  amount_g decimal(6,2) [note: '함량(g) — 시드에 있음']
   note: '제외 필터가 인덱스를 타도록 M:N 조인'
 }
 
