@@ -20,15 +20,21 @@ LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (�
 
 ## 2. 기술 스택
 
-수업 및 강사 레포(`joneconsulting/new-toy-msa`) 기준.
+팀 표준: **Spring Boot 4.0.7** (2026-08-13 확정 — start.spring.io 가 현재 4.x 만 제공하고, 인프라 3종이 4.0.7 로 구축·검증됨).
+수업·강사 레포(`joneconsulting/new-toy-msa`)는 3.5 기준이므로 수업 코드 복붙 시 아래 주의 참고.
 
 | 구분 | 값 |
 |---|---|
 | 빌드 | **Maven** (Gradle 아님) |
-| Java / Spring Boot / Cloud | 21 / 3.5.3 / 2025.0.0 |
+| Java / Spring Boot / Cloud | 17 / **4.0.7** / **2025.1.2** |
 | DB | H2 (개발) / MariaDB (통합) — 서비스별 분리 |
 | 메시징 | Kafka + Schema Registry (Avro, BACKWARD) |
-| 이미지 | 멀티스테이지 (`maven:3.9.11-eclipse-temurin-21` → `eclipse-temurin:21-jre`) |
+| 이미지 | 멀티스테이지 (`maven:3.9.11-eclipse-temurin-17` → `eclipse-temurin:17-jre`) |
+
+> **수업 코드(3.5) 복붙 주의** — Gateway 의존성은 `spring-cloud-starter-gateway-server-webflux`
+> (yml 키는 `spring.cloud.gateway.server.webflux.routes` — 강사 레포와 동일). Swagger 는 Boot 4 용 springdoc **3.x**.
+> web·data-jpa·validation·kafka·openfeign·config 스타터는 이름 동일 — Boot 4 호환 존재 확인 완료
+> (OpenFeign 5.0.2 · Config client 5.0.4 · springdoc 3.1.0).
 
 > **플랫폼 주의** — Mac(Apple Silicon)에서 만든 arm64 이미지는 Windows·EC2에서
 > `exec format error`로 즉시 종료된다. 공유 이미지는 `docker buildx build --platform linux/amd64`.
