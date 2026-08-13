@@ -1,0 +1,4 @@
+﻿name,brand,category,price,claim_type,kcal,sugar_g,carb_g,sweeteners(쉼표구분),allergens(쉼표구분),stock,verification_source(원재료명 확인 URL)
+제로 콜라 355ml,예시브랜드,탄산,1500,무당류,0,0,0,"아스파탐,아세설팜칼륨",,50,https://...
+# category: 간식/디저트|음료|탄산|조미료/소스|건강기능식품 · claim_type: 무당류|저당류|무첨가당
+"# sweeteners 15종 표기: D-말티톨,D-소비톨액,나한과추출분말,말티톨,수크랄로스,스테비아,스테비올 배당체,아라비아검,아세설팜칼륨,아스파탐,알룰로스,에리스리톨,이소말트,자일리톨,효소처리스테비아"
