@@ -130,13 +130,24 @@ _seed_path = os.path.join(DOCS, '시드데이터_zerofinder.csv')
 if not os.path.exists(_seed_path):
     print('  (D. 시드 CSV 없음 — PR #9 머지 전이면 정상, 검사 스킵)')
 else:
-  with io.open(_seed_path, encoding='utf-8-sig') as f:
-    rows = list(_csv.reader(f))
-  hdr, data = rows[0], rows[1:]
-  check('D1. 시드 500건 이상', len(data) >= 500)
-  for col in ['protein_g', 'fat_g', 'sodium_mg', 'serving_size', 'image_url', 'nutrition_facts_url']:
-      check(f'D2. 컬럼 {col} 존재', any(col in h for h in hdr))
-  check('D3. 가격 전건 입력', all(r[3].strip() for r in data))
+    with io.open(_seed_path, encoding='utf-8-sig') as _f:
+        _rows = list(_csv.reader(_f))
+    _hdr, _data = _rows[0], _rows[1:]
+    def _d1():
+        assert len(_data) >= 500, f'{len(_data)}건뿐'
+        return f'{len(_data)}건'
+    check('D.시드', '500건 이상', _d1)
+    def _d2():
+        need = ['protein_g', 'fat_g', 'sodium_mg', 'serving_size', 'image_url', 'nutrition_facts_url']
+        miss = [c for c in need if not any(c in h for h in _hdr)]
+        assert not miss, f'누락 {miss}'
+        return '영양·이미지 6컬럼 OK'
+    check('D.시드', '영양·이미지 컬럼 존재', _d2)
+    def _d3():
+        n = sum(1 for r in _data if not str(r[3]).strip())
+        assert n == 0, f'빈 가격 {n}건'
+        return '전건 입력'
+    check('D.시드', '가격 전건 입력', _d3)
 
 # ── E. 채점표 20개 항목 → 산출물 추적 ────────────────────────────────
 plan = read(PLAN)
