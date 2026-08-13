@@ -65,7 +65,10 @@ function AdminConsole({ onLogout }) {
 
   const ev = useMemo(() => loadEvents(), [tick])
   const n = (t) => ev.filter((e) => e.type === t).length
-  const v = n('PRODUCT_VIEWED'), c = n('CART_ADDED'), o = n('ORDER_COMPLETED')
+  // KPI 는 서버 지표(behavior_log 집계)를 우선 쓰고, 백엔드가 없으면 로컬 이벤트 수로 폴백한다.
+  const v = metrics?.viewed ?? n('PRODUCT_VIEWED')
+  const c = metrics?.cartAdded ?? n('CART_ADDED')
+  const o = metrics?.ordered ?? n('ORDER_COMPLETED')
 
   return (
     <div className="adm-shell">

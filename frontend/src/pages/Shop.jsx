@@ -51,11 +51,29 @@ export default function Shop() {
     return () => { alive = false }
   }, [filters, prefs.banSw, q])
 
-  // 추천 점수 — 정렬·배지에 사용
+  // 서버 추천 (GET /recommendation-service/recommendations/{memberId}) — 행동 이벤트 기반 점수
+  const [serverReco, setServerReco] = useState(null)
+  useEffect(() => {
+    let alive = true
+    api.fetchRecommendations(member?.memberId || 1).then((list) => {
+      if (alive && Array.isArray(list) && list.length && list[0].productId !== undefined) {
+        setServerReco(list.map((ri) => [ri.productId, { score: ri.score }]))
+      }
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [member])
+
+  // 추천 점수 — 정렬·배지에 사용. 서버 추천이 있으면 상위에 병합하고 나머지는 로컬 점수로 채운다.
   const scored = useMemo(() => {
     const s = scoreProducts(products, prefs)
-    return new Map(s.map((x, i) => [x.product.id, { rank: i, score: x.score }]))
-  }, [products, prefs])
+    const local = new Map(s.map((x, i) => [x.product.id, { rank: i, score: x.score }]))
+    if (!serverReco || !serverReco.length) return local
+    const merged = new Map()
+    let i = 0
+    for (const [id, v] of serverReco) merged.set(id, { rank: i++, score: Math.max(v.score, 2) })
+    for (const [id, v] of local) if (!merged.has(id)) merged.set(id, { rank: i + v.rank, score: v.score })
+    return merged
+  }, [products, prefs, serverReco])
   const recoTop = useMemo(() => {
     const ids = [...scored.entries()].filter(([, v]) => v.score > 1.5).sort((a, b) => a[1].rank - b[1].rank)
     return new Set(ids.slice(0, 8).map(([id]) => id))

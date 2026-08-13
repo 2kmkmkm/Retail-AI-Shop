@@ -2,6 +2,18 @@ import axios from 'axios'
 import { seedProducts } from './data/seed.js'
 import * as store from './utils/productStore.js'
 import * as mock from './utils/mock.js'
+import { toViewProduct, toViewProducts, toApiProduct } from './utils/normalize.js'
+
+// 챗봇 카드가 상품명·가격을 그려야 해서, 목록 응답을 id → {name, price} 로 캐시해 둔다.
+const productCache = new Map()
+function cacheProducts(list) {
+  if (Array.isArray(list)) list.forEach((p) => productCache.set(p.id, { name: p.name, price: p.price }))
+  return list
+}
+function lookupProduct(id) {
+  return productCache.get(id) || store.getProducts().find((p) => p.id === id)
+    || { name: `상품 ${id}`, price: 0 }
+}
 
 // 게이트웨이 라우팅 규칙(/<service-name>/**) 그대로 호출한다.
 // 개발 서버에서는 vite 프록시가 :8000 으로 넘긴다 (vite.config.js).
@@ -46,20 +58,25 @@ async function tryApi(call, fallback) {
 export const fetchProducts = (params) =>
   tryApi(() => api.get('/product-service/products', { params }),
     () => mock.filterProducts(store.getProducts(), params))
+    .then((list) => cacheProducts(toViewProducts(list)))
 
 export const fetchProduct = (id) =>
   tryApi(() => api.get(`/product-service/products/${id}`),
     () => store.getProducts().find((p) => p.id === Number(id)))
+    .then(toViewProduct)
 
 export const compareProducts = (ids) =>
   tryApi(() => api.get('/product-service/products/compare', { params: { ids: ids.join(',') } }),
     () => store.getProducts().filter((p) => ids.includes(p.id)))
+    .then(toViewProducts)
 
 export const createProduct = (body) =>
-  tryApi(() => api.post('/product-service/products', body), () => store.addProduct(body))
+  tryApi(() => api.post('/product-service/products', toApiProduct(body)), () => store.addProduct(body))
+    .then(toViewProduct)
 
 export const updateProduct = (id, body) =>
-  tryApi(() => api.put(`/product-service/products/${id}`, body), () => store.updateProduct(id, body))
+  tryApi(() => api.put(`/product-service/products/${id}`, toApiProduct(body)), () => store.updateProduct(id, body))
+    .then(toViewProduct)
 
 export const deleteProduct = (id) =>
   tryApi(() => api.delete(`/product-service/products/${id}`), () => store.deleteProduct(id))
@@ -102,12 +119,40 @@ export const fetchRecommendations = (memberId) =>
   tryApi(() => api.get(`/recommendation-service/recommendations/${memberId}`),
     () => mock.recommend(store.getProducts()))
 
+// 백엔드 ChatResponse(answer + RecoItem[])를 위젯 모델(reply + 상품 카드)로 변환한다.
 export const chat = (body) =>
   tryApi(() => api.post('/recommendation-service/chat', body),
     () => mock.chat(store.getProducts(), body.message))
+    .then((res) => {
+      if (!res || res.answer === undefined) return res
+      return {
+        reply: res.answer,
+        usedFallback: res.usedFallback,
+        products: (res.products || []).map((ri) => ({ productId: ri.productId, ...lookupProduct(ri.productId) })),
+      }
+    })
 
+// 백엔드 MetricsResponse 를 관리자 화면 필드명으로 변환한다 (ctr·fallbackRate 는 0~1 → %).
 export const fetchMetrics = () =>
   tryApi(() => api.get('/recommendation-service/metrics'), () => mock.metrics())
+    .then((m) => {
+      if (!m || m.ctr === undefined) return m
+      const ev = m.eventCounts || {}
+      const viewed = ev.PRODUCT_VIEWED ?? 0
+      return {
+        viewed,
+        cartAdded: ev.CART_ADDED ?? 0,
+        ordered: ev.ORDER_COMPLETED ?? 0,
+        conversionRate: viewed ? Math.round(((ev.ORDER_COMPLETED ?? 0) / viewed) * 1000) / 10 : 0,
+        recoClicks: m.clicks ?? 0,
+        clickRate: Math.round((m.ctr ?? 0) * 1000) / 10,
+        fallbackRate: Math.round((m.fallbackRate ?? 0) * 1000) / 10,
+        avgLatencyMs: m.avgRecoMs ?? null,
+        chatAvgMs: m.avgChatMs ?? null,
+        chatP95Ms: m.p95ChatMs ?? null,
+        chatCount: m.chatCount ?? 0,
+      }
+    })
 
 // 추천 상품 클릭 — 클릭률(선택 6) 집계용. 실패 시 로컬 기록으로 폴백.
 export const postRecoClick = (body) =>
@@ -120,9 +165,19 @@ export const postRecoClick = (body) =>
   })
 
 // 자연어 상품 검색 (선택 10) — 조건 추출 후 상품 반환. 폴백은 챗봇과 같은 규칙 파서.
+// 계약(openapi)의 요청 필드는 query, 응답은 { extracted, products: Product[] } 이다.
 export const nlSearch = (message) =>
-  tryApi(() => api.post('/recommendation-service/search', { message }),
+  tryApi(() => api.post('/recommendation-service/search', { query: message }),
     () => mock.chat(store.getProducts(), message))
+    .then((res) => {
+      if (!res || res.extracted === undefined) return res
+      const cond = Object.entries(res.extracted || {})
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('·') : v}`).join(' / ')
+      return {
+        reply: cond ? `추출 조건 — ${cond}` : null,
+        products: (res.products || []).map((p) => ({ productId: p.id, name: p.name, price: p.price })),
+      }
+    })
 
 // 장바구니 서버 동기화 — 백엔드가 있으면 cart_item 저장 + cart-added 발행 트리거.
 // 실패해도 화면은 로컬 장바구니로 동작한다 (베스트에포트).
