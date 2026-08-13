@@ -1,1 +1,2 @@
-message: "Hello from Config Server, commerce-service!"
+server:
+  port: 8082
