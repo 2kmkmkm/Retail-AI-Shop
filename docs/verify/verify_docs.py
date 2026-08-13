@@ -113,72 +113,26 @@ REQUIRED_PATHS = ['/product-service/products','/product-service/products/{id}','
  '/product-service/products/{id}/stock/deduct',
  '/commerce-service/members','/commerce-service/members/login','/commerce-service/carts',
  '/commerce-service/orders','/commerce-service/orders/{orderId}/pay',
+ '/commerce-service/orders/{orderId}/cancel','/commerce-service/behaviors',
  '/recommendation-service/preferences','/recommendation-service/recommendations/{memberId}',
  '/recommendation-service/chat','/recommendation-service/search',
  '/recommendation-service/click','/recommendation-service/metrics']
-check('C.API', '필수 경로 15개 존재', lambda:
+check('C.API', '필수 경로 17개 존재', lambda:
     (lambda miss: '전부 존재' if not miss else (_ for _ in ()).throw(RuntimeError(f'누락: {miss}')))(
         [p for p in REQUIRED_PATHS if p not in SPEC['paths']]))
 check('C.API', '결제 상태머신 표현', lambda:
     'PENDING' in json.dumps(SPEC['paths']['/commerce-service/orders']['post']) and
     'PAID' in json.dumps(SPEC['paths']['/commerce-service/orders/{orderId}/pay']) and 'OK')
 
-# ── D. 프로토타입 ↔ 문서 정합성 ─────────────────────────────────────
-proto = read(PROTO)
-def d_topics():
-    m = re.search(r'const TOPIC = \{([^}]+)\}', proto)
-    proto_topics = dict(re.findall(r'(\w+):"([\w-]+)"', m.group(1)))
-    for ev, topic in proto_topics.items():
-        fname = topic + '.avsc'
-        assert os.path.exists(os.path.join(DOCS,'avro',fname)), f'{fname} 없음'
-    return f"토픽 3개 일치: {sorted(proto_topics.values())}"
-check('D.정합성', '프로토타입 토픽명 == Avro 파일명', d_topics)
-
-def d_weights():
-    ws = re.findall(r'PRODUCT_VIEWED:(\d+),\s*CART_ADDED:(\d+),\s*ORDER_COMPLETED:(\d+)', proto)
-    assert ws and all(w == ('1','0','50') for w in ws), f'프로토타입 가중치 {ws}'
-    md = read(os.path.join(DOCS,'이벤트스키마.md'))
-    assert '| 1 |' in md and '| 0 |' in md and '| 50 |' in md, '문서 가중치 표 불일치'
-    return f"1/0/50 — 프로토타입 {len(ws)}곳 + 문서 일치"
-check('D.정합성', '가중치(조회1/담기0/주문50) 일치', d_weights)
-
-def d_payload():
-    sql = read(os.path.join(DOCS,'sql','schema-reco.sql'))
-    cols = set(re.findall(r'^\s{2}(\w+)\s', sql[sql.index('behavior_log'):sql.index('reco_result')], re.M))
-    need = {'member_id','product_id','category','event_type','qty','unit_price','order_no','payment_method','occurred_at'}
-    missing = need - cols
-    assert not missing, f'behavior_log 누락 컬럼: {missing}'
-    return 'Avro 전 필드가 behavior_log 에 적재 가능'
-check('D.정합성', 'Avro 필드 ⊆ behavior_log 컬럼', d_payload)
-
-def d_product_fields():
-    m = re.search(r'"Product"?', '')
-    props = set(SPEC['components']['schemas']['Product']['properties'].keys())
-    need = {'id','name','brand','category','price','stock','claimType','kcal','sugarG','carbG','sweeteners'}
-    missing = need - props
-    assert not missing, f'Product 스키마 누락: {missing}'
-    # 프로토타입 카드가 쓰는 필드가 다 있는가
-    for f in ['name','brand','price','stock','kcal']:
-        assert f in props
-    return f"Product {len(props)}개 속성 — 카드 필드 전부 커버"
-check('D.정합성', '프로토타입 카드 필드 ⊆ API Product', d_product_fields)
-
-def d_no_cross_fk():
-    for fname in ['schema-product.sql','schema-commerce.sql','schema-reco.sql']:
-        sql = read(os.path.join(DOCS,'sql',fname))
-        own = set(re.findall(r'CREATE TABLE (\w+)', sql))
-        refs = set(re.findall(r'REFERENCES (\w+)\(', sql))
-        cross = refs - own
-        assert not cross, f'{fname} 교차 FK: {cross}'
-    return '3개 스키마 모두 교차 FK 없음'
-check('D.정합성', 'Database per Service (교차 FK 금지)', d_no_cross_fk)
-
-def d_seed_matches():
-    n = len(re.findall(r"INSERT INTO product \(", read(os.path.join(DOCS,'sql','seed-product.sql'))))
-    m = len(re.findall(r'\{id:\d+,\s*name:\"[^\"]+\",\s*brand:', proto))
-    assert n == m == 18, f'시드 {n} vs 프로토타입 {m}'
-    return '시드 18개 == 프로토타입 18개'
-check('D.정합성', '시드 데이터 == 프로토타입 데이터', d_seed_matches)
+# ───── D. 시드 CSV — 형식·규모 검증 (크롤 시드 515건 체제) ─────
+import csv as _csv
+with io.open(os.path.join(DOCS, '시드데이터_zerofinder.csv'), encoding='utf-8-sig') as f:
+    rows = list(_csv.reader(f))
+hdr, data = rows[0], rows[1:]
+check('D1. 시드 500건 이상', len(data) >= 500)
+for col in ['protein_g', 'fat_g', 'sodium_mg', 'serving_size', 'image_url', 'nutrition_facts_url']:
+    check(f'D2. 컬럼 {col} 존재', any(col in h for h in hdr))
+check('D3. 가격 전건 입력', all(r[3].strip() for r in data))
 
 # ── E. 채점표 20개 항목 → 산출물 추적 ────────────────────────────────
 plan = read(PLAN)

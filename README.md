@@ -57,8 +57,8 @@ LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (�
 
 | 문서 | 내용 | 검증 |
 |---|---|---|
-| [ERD.md](docs/ERD.md) · [제로픽_ERD.dbml](docs/제로픽_ERD.dbml) · [sql/](docs/sql) | 스키마 3개 + 시드 18개. dbml 은 dbdiagram.io 붙여넣기용 | H2(MariaDB 모드) 실행 |
-| [API명세서.md](docs/API명세서.md) · [openapi/openapi.yaml](docs/openapi/openapi.yaml) | 경로 18개 (회원가입·로그인 포함) | OpenAPI 3.0.3 검증 |
+| [제로픽_ERD.dbml](docs/제로픽_ERD.dbml) · [sql/](docs/sql) | 스키마 3개 + 시드 18개. dbml 은 dbdiagram.io 붙여넣기용 | H2(MariaDB 모드) 실행 |
+| [API명세서.md](docs/API명세서.md) · [openapi/openapi.yaml](docs/openapi/openapi.yaml) | 경로 20개 (회원·주문취소·behaviors·상품 CRUD 포함) | OpenAPI 3.0.3 검증 |
 | [이벤트스키마.md](docs/이벤트스키마.md) · [avro/](docs/avro) | 토픽 3개, 파티션·컨슈머 그룹, 가중치(조회+1/담기0/주문+50) | fastavro 왕복 |
 
 시드 입력: [docs/시드입력_템플릿.csv](docs/시드입력_템플릿.csv) — 1인 25개, D1 마감.
