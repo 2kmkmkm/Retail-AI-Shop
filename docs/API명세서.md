@@ -29,6 +29,7 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 |---|---|---|
 | POST | `/commerce-service/members` | 회원가입 |
 | POST | `/commerce-service/members/login` | 로그인 — memberId 반환 (JWT 는 MP1 코드 재사용 시 선택) |
+| POST | `/commerce-service/behaviors` | 행동 이벤트 수신(조회) — Kafka 발행. 담기·주문 이벤트는 해당 API 처리 중 직접 발행 |
 | GET | `/commerce-service/members/{id}` | 회원 조회 |
 | GET | `/commerce-service/carts/{memberId}` | 장바구니 |
 | POST | `/commerce-service/carts` | 담기 → `cart-added` 발행 (가중치 0, 기록용) |

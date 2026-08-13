@@ -487,6 +487,44 @@ paths:
                     description: JWT 사용 시에만
         '401':
           description: 인증 실패
+  /commerce-service/behaviors:
+    post:
+      tags:
+      - commerce
+      summary: 행동 이벤트 수신 — 프론트의 상품 조회 등 행동을 받아 Kafka로 발행
+      description: 상세 조회(PRODUCT_VIEWED)는 프론트가 이 경로로 보낸다. 담기·주문 이벤트는 장바구니·결제 API 처리 중에 commerce-service가 직접 발행하므로
+        이 경로를 쓰지 않는다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - memberId
+              - productId
+              - eventType
+              - category
+              properties:
+                memberId:
+                  type: integer
+                  format: int64
+                productId:
+                  type: integer
+                  format: int64
+                eventType:
+                  type: string
+                  enum:
+                  - PRODUCT_VIEWED
+                category:
+                  type: string
+                  description: 이벤트 payload 비정규화용
+                occurredAt:
+                  type: string
+                  format: date-time
+      responses:
+        '202':
+          description: 수신 — Kafka 발행 큐잉
 components:
   schemas:
     Product:
