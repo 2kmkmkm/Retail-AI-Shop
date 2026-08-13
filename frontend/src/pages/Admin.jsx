@@ -18,8 +18,9 @@ export default function Admin() {
 }
 
 function Gate({ onPass }) {
-  const [id, setId] = useState('')
-  const [pw, setPw] = useState('')
+  // 데모 편의상 미리 채워둔다 — 실서비스 전환 시 제거
+  const [id, setId] = useState(ADMIN_ID)
+  const [pw, setPw] = useState(ADMIN_PW)
   const [err, setErr] = useState('')
   const submit = () => {
     if (id === ADMIN_ID && pw === ADMIN_PW) onPass()
