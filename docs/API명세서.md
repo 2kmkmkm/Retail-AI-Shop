@@ -25,6 +25,7 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 | DELETE | `/product-service/products/{id}` | 상품 삭제 (관리자 화면) |
 | GET | `/product-service/products/compare?ids=1,2,3` | 영양성분 비교 (개수 제한 없음) |
 | PUT | `/product-service/products/{id}/stock/deduct` | **내부 전용** — commerce 가 OpenFeign 으로 호출. Gateway 비노출. 재고 부족 시 409 |
+| PUT | `/product-service/products/{id}/stock/restore` | **내부 전용** — 주문 취소·결제 실패 롤백 시 재고 복구 |
 
 ## commerce-service
 
