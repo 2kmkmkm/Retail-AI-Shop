@@ -593,6 +593,25 @@ paths:
       responses:
         '202':
           description: 수신 — Kafka 발행 큐잉
+  /commerce-service/orders/{orderId}/cancel:
+    post:
+      tags:
+      - commerce
+      summary: 주문 취소 — 핵심 7 주문 CRUD. PAID 취소 시 재고 복구(OpenFeign)
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 취소 완료 — 상태 CANCELLED, 결제됐던 주문은 재고 복구
+        '404':
+          description: 없는 주문
+        '409':
+          description: 취소 불가 상태 (이미 CANCELLED 등)
 components:
   schemas:
     Product:

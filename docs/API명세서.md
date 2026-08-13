@@ -38,6 +38,7 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 | POST | `/commerce-service/carts` | 담기 → `cart-added` 발행 (가중치 0, 기록용) |
 | POST | `/commerce-service/orders` | 주문 생성 — 상태 **PENDING**, 재고 차감 없음 |
 | POST | `/commerce-service/orders/{orderId}/pay` | 모의 결제 승인 → **PAID** + 재고 차감(OpenFeign) + `order-completed` 품목별 발행. 차감 실패 시 CANCELLED + 409 |
+| POST | `/commerce-service/orders/{orderId}/cancel` | 주문 취소 — PAID 취소 시 재고 복구 (핵심 7 주문 CRUD) |
 | GET | `/commerce-service/orders?memberId=` | 주문 내역 |
 
 ## recommendation-service
