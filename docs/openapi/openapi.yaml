@@ -1,0 +1,750 @@
+openapi: 3.0.3
+info:
+  title: ZeroPick API
+  version: 0.1.0
+  description: 저당·제로 식품 커머스 + 조건 기반 개인화 추천. 모든 외부 호출은 API Gateway(:8000)를 경유한다.
+servers:
+- url: http://localhost:8000
+  description: API Gateway
+tags:
+- name: product
+  description: product-service (:8081)
+- name: commerce
+  description: commerce-service (:8082)
+- name: recommendation
+  description: recommendation-service (:8083)
+paths:
+  /products:
+    get:
+      tags:
+      - product
+      summary: 상품 목록 (필터)
+      parameters:
+      - name: category
+        in: query
+        schema:
+          type: string
+      - name: sweetenerExclude
+        in: query
+        schema:
+          type: string
+        description: '쉼표 구분. 예: 말티톨,아스파탐'
+      - name: allergenExclude
+        in: query
+        schema:
+          type: string
+      - name: sugarMax
+        in: query
+        schema:
+          type: number
+      - name: kcalMin
+        in: query
+        schema:
+          type: number
+      - name: kcalMax
+        in: query
+        schema:
+          type: number
+      - name: q
+        in: query
+        schema:
+          type: string
+        description: 상품명·브랜드 검색
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum:
+          - pop
+          - kcal
+          - sugar
+          - price
+        description: 추천순은 FE가 GET /reco/{memberId} 점수와 병합해 정렬
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+  /products/{id}:
+    get:
+      tags:
+      - product
+      summary: 상품 상세
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          description: 없음
+  /products/compare:
+    get:
+      tags:
+      - product
+      summary: 영양성분 비교 (개수 제한 없음)
+      parameters:
+      - name: ids
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 쉼표 구분 상품 id
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductDetail'
+  /products/{id}/stock/deduct:
+    put:
+      tags:
+      - product
+      summary: 재고 차감 — 내부 전용(OpenFeign, commerce-service 만 호출. Gateway 비노출)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - qty
+              properties:
+                qty:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 차감 후 상품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '409':
+          description: 재고 부족
+  /commerce/members:
+    post:
+      tags:
+      - commerce
+      summary: 회원가입
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberCreate'
+      responses:
+        '201':
+          description: 생성
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+  /commerce/members/{id}:
+    get:
+      tags:
+      - commerce
+      summary: 회원 조회
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+  /commerce/carts/{memberId}:
+    get:
+      tags:
+      - commerce
+      summary: 장바구니 조회
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CartItem'
+  /commerce/carts:
+    post:
+      tags:
+      - commerce
+      summary: 담기 — CART_ADDED 발행(가중치 0, 기록용)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartAdd'
+      responses:
+        '201':
+          description: 담김
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartItem'
+  /commerce/orders:
+    post:
+      tags:
+      - commerce
+      summary: 주문 생성 — 상태 PENDING (결제 전, 재고 차감 없음)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreate'
+      responses:
+        '201':
+          description: PENDING 주문
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    get:
+      tags:
+      - commerce
+      summary: 주문 내역
+      parameters:
+      - name: memberId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+  /commerce/orders/{orderId}/pay:
+    post:
+      tags:
+      - commerce
+      summary: 모의 결제 승인 — PAID 전이 + 재고 차감(OpenFeign) + ORDER_COMPLETED 발행(품목별)
+      description: 재고 차감 실패 시 주문을 CANCELLED 로 전이하고 409 를 반환한다.
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paymentMethod
+              properties:
+                paymentMethod:
+                  type: string
+                  enum:
+                  - 신용카드
+                  - 카카오페이
+                  - 토스페이
+                  - 무통장입금
+      responses:
+        '200':
+          description: PAID 주문
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '409':
+          description: 재고 부족 → CANCELLED
+  /reco/preferences:
+    post:
+      tags:
+      - recommendation
+      summary: 온보딩 — 선호/제외 조건 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preference'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preference'
+  /reco/preferences/{memberId}:
+    get:
+      tags:
+      - recommendation
+      summary: 선호 조건 조회
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preference'
+  /reco/{memberId}:
+    get:
+      tags:
+      - recommendation
+      summary: 추천 점수 목록 — 목록 추천순 정렬·배지의 데이터 소스 (선택 8번 부하 테스트 대상)
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecoItem'
+  /reco/chat:
+    post:
+      tags:
+      - recommendation
+      summary: 상담 챗봇 (핵심 10번) — 조건 추출(LLM) → 하드필터 → 행동 가중치 랭킹 → 답변 생성
+      description: LLM 호출 실패 시 규칙 기반 파서 + 템플릿 문장으로 Fallback (Circuit Breaker, 선택 4번). usedFallback 으로 폴백 여부를 반환한다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - memberId
+              - message
+              properties:
+                memberId:
+                  type: integer
+                  format: int64
+                message:
+                  type: string
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+  /reco/search:
+    post:
+      tags:
+      - recommendation
+      summary: 자연어 상품 검색 (선택 10번) — 챗봇 1단계(조건 추출)와 동일 파이프라인
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - query
+              properties:
+                query:
+                  type: string
+                memberId:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+  /reco/click:
+    post:
+      tags:
+      - recommendation
+      summary: 추천 배지 클릭 기록 (선택 6번 클릭률 집계용)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - memberId
+              - productId
+              properties:
+                memberId:
+                  type: integer
+                  format: int64
+                productId:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: 기록됨
+  /reco/metrics:
+    get:
+      tags:
+      - recommendation
+      summary: 추천 성과 집계 (선택 6번 대시보드용) — 노출 대비 클릭률, 이벤트 수, 폴백 발생률
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+  /commerce/members/login:
+    post:
+      tags:
+      - commerce
+      summary: 로그인 — 이메일·비밀번호 검증 후 회원 정보 반환
+      description: 본격적인 인증(JWT)은 RTL-M 채점 범위 외. 세션 식별용 memberId 반환까지가 기본 범위이며, MP1 의 JWT 코드를 재사용할 경우 token 필드를 채운다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memberId:
+                    type: integer
+                    format: int64
+                  name:
+                    type: string
+                  token:
+                    type: string
+                    description: JWT 사용 시에만
+        '401':
+          description: 인증 실패
+components:
+  schemas:
+    Product:
+      type: object
+      required:
+      - id
+      - name
+      - brand
+      - category
+      - price
+      - stock
+      - claimType
+      - kcal
+      - sugarG
+      - carbG
+      - sweeteners
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        brand:
+          type: string
+        category:
+          type: string
+        price:
+          type: integer
+        imageUrl:
+          type: string
+        stock:
+          type: integer
+        claimType:
+          type: string
+          enum:
+          - 무당류
+          - 저당류
+          - 무첨가당
+        kcal:
+          type: number
+        sugarG:
+          type: number
+        carbG:
+          type: number
+        sweeteners:
+          type: array
+          items:
+            type: string
+        allergens:
+          type: array
+          items:
+            type: string
+    ProductDetail:
+      allOf:
+      - $ref: '#/components/schemas/Product'
+      - type: object
+        properties:
+          verificationSource:
+            type: string
+          createdAt:
+            type: string
+            format: date-time
+    MemberCreate:
+      type: object
+      required:
+      - email
+      - password
+      - name
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+    Member:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        name:
+          type: string
+    CartAdd:
+      type: object
+      required:
+      - memberId
+      - productId
+      - qty
+      properties:
+        memberId:
+          type: integer
+          format: int64
+        productId:
+          type: integer
+          format: int64
+        qty:
+          type: integer
+          minimum: 1
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        productId:
+          type: integer
+          format: int64
+        qty:
+          type: integer
+    OrderCreate:
+      type: object
+      required:
+      - memberId
+      - items
+      properties:
+        memberId:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            type: object
+            required:
+            - productId
+            - qty
+            properties:
+              productId:
+                type: integer
+                format: int64
+              qty:
+                type: integer
+                minimum: 1
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderNo:
+          type: string
+        memberId:
+          type: integer
+          format: int64
+        totalPrice:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+          - COMPLETED
+          - CANCELLED
+        paymentMethod:
+          type: string
+        orderedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: integer
+                format: int64
+              productName:
+                type: string
+              qty:
+                type: integer
+              unitPrice:
+                type: integer
+                format: int64
+    Preference:
+      type: object
+      required:
+      - memberId
+      properties:
+        memberId:
+          type: integer
+          format: int64
+        categories:
+          type: array
+          items:
+            type: string
+        excludedSweeteners:
+          type: array
+          items:
+            type: string
+        allergens:
+          type: array
+          items:
+            type: string
+        priceMin:
+          type: integer
+        priceMax:
+          type: integer
+    RecoItem:
+      type: object
+      required:
+      - productId
+      - score
+      - reasons
+      properties:
+        productId:
+          type: integer
+          format: int64
+        score:
+          type: number
+        reasons:
+          type: array
+          items:
+            type: string
+        badge:
+          type: boolean
+          description: 목록에서 ✨추천 배지 표시 여부
+    ChatResponse:
+      type: object
+      required:
+      - answer
+      - usedFallback
+      properties:
+        answer:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoItem'
+        extracted:
+          type: object
+          description: 추출된 조건 JSON
+        usedFallback:
+          type: boolean
+    SearchResponse:
+      type: object
+      properties:
+        extracted:
+          type: object
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+    MetricsResponse:
+      type: object
+      properties:
+        impressions:
+          type: integer
+        clicks:
+          type: integer
+        ctr:
+          type: number
+        eventCounts:
+          type: object
+        fallbackRate:
+          type: number
