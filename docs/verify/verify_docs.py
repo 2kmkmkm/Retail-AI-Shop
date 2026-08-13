@@ -109,15 +109,19 @@ import yaml
 from openapi_spec_validator import validate as validate_openapi
 SPEC = yaml.safe_load(read(os.path.join(DOCS,'openapi','openapi.yaml')))
 check('C.API', 'OpenAPI 3.0.3 스펙 검증', lambda: (validate_openapi(SPEC), f"경로 {len(SPEC['paths'])}개")[1])
-REQUIRED_PATHS = ['/products','/products/{id}','/products/compare','/products/{id}/stock/deduct',
- '/commerce/members','/commerce/carts','/commerce/orders','/commerce/orders/{orderId}/pay',
- '/reco/preferences','/reco/{memberId}','/reco/chat','/reco/search','/reco/click','/reco/metrics']
-check('C.API', '필수 경로 14개 존재', lambda:
+REQUIRED_PATHS = ['/product-service/products','/product-service/products/{id}','/product-service/products/compare',
+ '/product-service/products/{id}/stock/deduct',
+ '/commerce-service/members','/commerce-service/members/login','/commerce-service/carts',
+ '/commerce-service/orders','/commerce-service/orders/{orderId}/pay',
+ '/recommendation-service/preferences','/recommendation-service/recommendations/{memberId}',
+ '/recommendation-service/chat','/recommendation-service/search',
+ '/recommendation-service/click','/recommendation-service/metrics']
+check('C.API', '필수 경로 15개 존재', lambda:
     (lambda miss: '전부 존재' if not miss else (_ for _ in ()).throw(RuntimeError(f'누락: {miss}')))(
         [p for p in REQUIRED_PATHS if p not in SPEC['paths']]))
 check('C.API', '결제 상태머신 표현', lambda:
-    'PENDING' in json.dumps(SPEC['paths']['/commerce/orders']['post']) and
-    'PAID' in json.dumps(SPEC['paths']['/commerce/orders/{orderId}/pay']) and 'OK')
+    'PENDING' in json.dumps(SPEC['paths']['/commerce-service/orders']['post']) and
+    'PAID' in json.dumps(SPEC['paths']['/commerce-service/orders/{orderId}/pay']) and 'OK')
 
 # ── D. 프로토타입 ↔ 문서 정합성 ─────────────────────────────────────
 proto = read(PROTO)
@@ -171,7 +175,7 @@ check('D.정합성', 'Database per Service (교차 FK 금지)', d_no_cross_fk)
 
 def d_seed_matches():
     n = len(re.findall(r"INSERT INTO product \(", read(os.path.join(DOCS,'sql','seed-product.sql'))))
-    m = len(re.findall(r'\{id:\d+,\s*name:', proto))
+    m = len(re.findall(r'\{id:\d+,\s*name:\"[^\"]+\",\s*brand:', proto))
     assert n == m == 18, f'시드 {n} vs 프로토타입 {m}'
     return '시드 18개 == 프로토타입 18개'
 check('D.정합성', '시드 데이터 == 프로토타입 데이터', d_seed_matches)
@@ -191,20 +195,20 @@ RUBRIC = [
  ('핵심4 Config+LLM키 분리',    [(plan,'Config Server'),(plan,'LLM API 키')]),
  ('핵심5 OpenFeign 동기',       [(api,'stock/deduct'),(api,'OpenFeign')]),
  ('핵심6 Kafka 3종 이벤트',     [(evt,'product-viewed'),(evt,'cart-added'),(evt,'order-completed')]),
- ('핵심7 CRUD+재고차감',        [(oas,'/commerce/orders/{orderId}/pay'),(sqls,"'PENDING'")]),
+ ('핵심7 CRUD+재고차감',        [(oas,'/commerce-service/orders/{orderId}/pay'),(sqls,"'PENDING'")]),
  ('핵심8 DB분리+ERD',           [(erd,'Database per Service')]),
  ('핵심9 Docker Compose',       [(plan,'docker-compose')]),
- ('핵심10 챗봇+측정',           [(oas,'/reco/chat'),(plan,'측정 지표')]),
+ ('핵심10 챗봇+측정',           [(oas,'/recommendation-service/chat'),(plan,'측정 지표')]),
  ('선택1 K8s',                  [(plan,'Kubernetes')]),
  ('선택2 Schema Registry',      [(evt,'Schema Registry'),(evt,'BACKWARD')]),
  ('선택3 Spring Cloud Bus',     [(plan,'Spring Cloud Bus')]),
  ('선택4 CB/LLM Fallback',      [(plan,'Circuit Breaker'),(oas,'usedFallback')]),
  ('선택5 모니터링',             [(plan,'Grafana')]),
- ('선택6 추천 성과 대시보드',   [(oas,'/reco/click'),(oas,'/reco/metrics'),(sqls,'reco_click')]),
+ ('선택6 추천 성과 대시보드',   [(oas,'/recommendation-service/click'),(oas,'/recommendation-service/metrics'),(sqls,'reco_click')]),
  ('선택7 CI/CD',                [(plan,'GitHub Actions')]),
- ('선택8 추천 API 부하테스트',  [(plan,'부하 테스트'),(oas,'/reco/{memberId}')]),
+ ('선택8 추천 API 부하테스트',  [(plan,'부하 테스트'),(oas,'/recommendations/{memberId}')]),
  ('선택9 로그 중앙화 EFK',      [(plan,'Fluent Bit')]),
- ('선택10 자연어 검색',         [(oas,'/reco/search')]),
+ ('선택10 자연어 검색',         [(oas,'/recommendation-service/search')]),
 ]
 for item, conds in RUBRIC:
     check('E.채점표', item, lambda conds=conds:
