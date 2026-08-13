@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZeroPick — 저당·제로 식품 검색 + AI 추천 (프로토타입)</title>
+<style>
+  :root{
+    --bg:#f8f9fb; --card:#fff; --line:#e5e7eb; --line2:#eef0f3;
+    --text:#1f2937; --muted:#6b7280; --faint:#9ca3af;
+    --indigo:#6366f1; --indigo-d:#4f46e5; --indigo-bg:#eef2ff;
+    --price:#ef4444; --green:#10b981; --green-bg:#ecfdf5;
+    --red-bg:#fef2f2; --red:#dc2626;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    --mono:Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:var(--sans);color:var(--text);font-size:14px;line-height:1.5}
+  button{font-family:inherit;cursor:pointer}
+
+  /* ── header ── */
+  header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .hw{max-width:1180px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:26px}
+  .logo{font-size:21px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+  .logo .zp{color:var(--indigo)}
+  .gnav{display:flex;gap:2px}
+  .gnav button{border:none;background:none;padding:19px 12px 17px;font-size:14.5px;color:var(--muted);border-bottom:2px solid transparent}
+  .gnav button.on{color:var(--text);font-weight:700;border-bottom-color:var(--indigo)}
+  .searchbox{flex:1;max-width:420px;position:relative}
+  .searchbox input{width:100%;border:none;background:var(--bg);border-radius:20px;padding:10px 42px 10px 18px;font-size:13.5px;font-family:inherit;outline:none}
+  .searchbox .go{position:absolute;right:5px;top:5px;width:30px;height:30px;border-radius:50%;border:none;background:var(--indigo);color:#fff;font-size:13px}
+  .hbtns{margin-left:auto;display:flex;gap:8px;align-items:center;white-space:nowrap}
+  .profileb{border:1px solid var(--line);background:#fff;border-radius:18px;padding:8px 16px;font-size:13px}
+  .profileb b{color:var(--indigo)}
+  .joinb{border:none;background:var(--indigo);color:#fff;border-radius:18px;padding:9px 18px;font-size:13px;font-weight:600}
+
+  /* ── layout ── */
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 120px;display:flex;gap:22px;align-items:flex-start}
+  aside{width:200px;flex:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 14px;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto}
+  aside h5{margin:0 0 9px;font-size:12.5px;color:var(--muted);font-weight:700}
+  aside section{margin-bottom:18px}
+  .catlist{display:flex;flex-wrap:wrap;gap:5px}
+  .cat{border:1px solid var(--line);border-radius:14px;padding:4px 11px;font-size:12px;background:#fff;color:var(--muted)}
+  .cat.on{background:var(--indigo-bg);border-color:var(--indigo);color:var(--indigo-d);font-weight:600}
+  .swlist{display:flex;flex-direction:column;gap:3px;max-height:300px;overflow-y:auto}
+  .swrow{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;font-size:12.5px;color:var(--muted)}
+  .swrow:hover{background:var(--bg)}
+  .swrow input{accent-color:var(--indigo)}
+  .swrow.banned{color:var(--red);font-weight:600}
+  .swrow.banned::after{content:"제외";margin-left:auto;font-size:10px;background:var(--red-bg);padding:1px 6px;border-radius:8px;flex:none}
+  .kcal-in{display:flex;gap:6px;align-items:center}
+  .kcal-in input{width:64px;border:1px solid var(--line);border-radius:7px;padding:6px;font-size:12.5px;font-family:inherit}
+  .resetb{width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px;font-size:12.5px;color:var(--muted)}
+
+  main{flex:1;min-width:0}
+  .toolbar{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .toolbar h2{font-size:19px;margin:0}
+  .toolbar .cnt{color:var(--muted);font-size:13px}
+  .toolbar select{margin-left:auto;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;background:#fff}
+  .hint{font-size:12px;color:var(--faint);margin:0 0 14px}
+  .hint b{color:var(--indigo)}
+
+  /* ── AI 추천 스트립 ── */
+  .aistrip{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #e0e7ff;border-radius:14px;padding:16px 18px;margin-bottom:20px}
+  .aistrip .t{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+  .aistrip .t h3{margin:0;font-size:15.5px}
+  .aistrip .t small{color:var(--muted);font-size:12px}
+  .aistrip .t .more{margin-left:auto;border:none;background:none;color:var(--indigo-d);font-size:12.5px;font-weight:600}
+  .airow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:900px){.airow{grid-template-columns:1fr}}
+  .aicard{background:#fff;border-radius:11px;padding:12px;display:flex;gap:11px;cursor:pointer;border:1px solid #e0e7ff}
+  .aicard .rank{font-size:11px;font-weight:800;color:var(--indigo);flex:none}
+  .aicard .thumb2{width:52px;height:52px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:26px;flex:none}
+  .aicard h4{margin:0 0 2px;font-size:13px}
+  .aicard .why{font-size:11px;color:var(--muted);line-height:1.45}
+  .aicard .why em{font-style:normal;color:var(--indigo-d)}
+
+  /* ── product grid ── */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:14px}
+  .pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;position:relative;display:flex;flex-direction:column;gap:7px;transition:box-shadow .15s;cursor:pointer}
+  .pcard:hover{box-shadow:0 4px 16px rgba(0,0,0,.07)}
+  .cmpb{position:absolute;top:10px;right:10px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:3px 9px;font-size:11px;color:var(--muted);z-index:2}
+  .cmpb.on{background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:700}
+  .thumb{height:110px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:48px}
+  .pcard h4{margin:2px 0 0;font-size:13.5px;line-height:1.35;min-height:36px}
+  .brand{font-size:11.5px;color:var(--faint)}
+  .nut{font-size:11.5px;color:var(--muted)}
+  .nut b{color:var(--text);font-weight:600}
+  .badges{display:flex;flex-wrap:wrap;gap:4px;min-height:20px}
+  .bdg{font-size:10.5px;background:var(--indigo-bg);color:var(--indigo-d);border-radius:9px;padding:2px 7px}
+  .bdg.none{background:var(--green-bg);color:var(--green)}
+  .bdg.ban{background:var(--red-bg);color:var(--red);text-decoration:line-through}
+  .bdg.airec{background:#fef3c7;color:#b45309;font-weight:700}
+  .prow{display:flex;align-items:center;margin-top:2px}
+  .krw{font-size:15.5px;font-weight:800;color:var(--price)}
+  .krw small{font-size:10.5px;font-weight:600;margin-left:2px}
+  .stock{margin-left:auto;font-size:10.5px;color:var(--faint)}
+  .stock.low{color:var(--red);font-weight:700}
+  .cardacts{display:flex;gap:6px}
+  .cardacts button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 0;font-size:12px}
+  .cardacts button.buy{background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:600}
+  .soldban{position:absolute;inset:0;background:rgba(255,255,255,.72);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--red);z-index:3}
+
+  /* ── compare tray & modal ── */
+  .tray{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);box-shadow:0 -6px 24px rgba(0,0,0,.08);z-index:60;transform:translateY(110%);transition:.2s}
+  .tray.show{transform:none}
+  .trayw{max-width:1180px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:12px}
+  .trayitem{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12.5px;background:var(--bg)}
+  .trayitem button{border:none;background:none;color:var(--faint);font-size:13px;padding:0}
+  .traygo{margin-left:auto;border:none;background:var(--indigo);color:#fff;border-radius:9px;padding:11px 22px;font-size:13.5px;font-weight:700}
+  .traygo:disabled{background:#c7cbe8}
+
+  .modalbg{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:70;display:none;align-items:flex-start;justify-content:center;padding:60px 16px;overflow-y:auto}
+  .modalbg.show{display:flex}
+  .modal{background:#fff;border-radius:16px;max-width:760px;width:100%;padding:26px 28px;position:relative}
+  .modal .x{position:absolute;top:14px;right:16px;border:none;background:none;font-size:20px;color:var(--faint)}
+  .modal h3{margin:0 0 4px;font-size:18px}
+  .modal .sub2{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}
+  th,td{border:1px solid var(--line2);padding:9px 12px;text-align:left}
+  thead th{background:var(--bg);color:var(--muted);font-weight:600;font-size:12px}
+  td.best{background:var(--green-bg);font-weight:700}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:15px;padding:6px 13px;font-size:12.5px;user-select:none;cursor:pointer}
+  .chip.on{background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:600}
+  .chip.ban.on{background:var(--red);border-color:var(--red)}
+  .mh5{font-size:13px;font-weight:700;margin:14px 0 2px}
+  .mh5 small{color:var(--faint);font-weight:400;margin-left:6px}
+
+  /* ── cart / events ── */
+  .list{display:flex;flex-direction:column;gap:10px}
+  .lrow{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px 16px;display:flex;align-items:center;gap:13px}
+  .lrow .thumb2{width:46px;height:46px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:24px}
+  .lrow .nm{font-size:13.5px;font-weight:600}
+  .lrow .mt{font-size:11.5px;color:var(--faint)}
+  .lrow .rp{margin-left:auto;font-weight:800;color:var(--price)}
+  .qty{display:flex;align-items:center;gap:8px}
+  .qty button{width:24px;height:24px;border:1px solid var(--line);background:#fff;border-radius:6px}
+  .orderbar{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:14px;display:flex;align-items:center}
+  .orderbar .tt{font-size:15px}
+  .orderbar .tt b{color:var(--price);font-size:18px}
+  .orderbar button{margin-left:auto;border:none;background:var(--indigo);color:#fff;border-radius:10px;padding:13px 30px;font-size:14px;font-weight:700}
+  .log{background:#111827;color:#d1d5db;border-radius:12px;padding:16px;font-family:var(--mono);font-size:12px;max-height:460px;overflow:auto;line-height:1.7}
+  .log .tp{color:#34d399}.log .ev{color:#fbbf24}.log .tm{color:#6b7280}
+  .empty{color:var(--faint);padding:44px;text-align:center;border:1.5px dashed var(--line);border-radius:12px;background:#fff}
+  /* ── 챗봇 ── */
+  .chatfab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;border:none;
+    background:var(--indigo);color:#fff;font-size:24px;box-shadow:0 6px 20px rgba(79,70,229,.4);z-index:80}
+  .chatpanel{position:fixed;bottom:92px;right:24px;width:372px;max-width:calc(100vw - 32px);height:520px;
+    background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.16);
+    z-index:80;display:none;flex-direction:column;overflow:hidden}
+  .chatpanel.show{display:flex}
+  .chathead{background:var(--indigo);color:#fff;padding:13px 16px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .chathead small{font-weight:400;opacity:.75;font-size:11px}
+  .chathead .x2{margin-left:auto;border:none;background:none;color:#fff;font-size:16px;opacity:.8}
+  .chatmsgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+  .cmsg{max-width:86%;padding:9px 12px;border-radius:13px;font-size:12.8px;line-height:1.55}
+  .cmsg.bot{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}
+  .cmsg.user{background:var(--indigo);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+  .cmsg .mini{display:flex;gap:8px;align-items:center;border:1px solid var(--line2);border-radius:9px;
+    padding:7px 9px;margin-top:7px;cursor:pointer;background:var(--bg)}
+  .cmsg .mini:hover{border-color:var(--indigo)}
+  .cmsg .mini .me{font-size:20px}
+  .cmsg .mini .mn{font-size:12px;font-weight:600}
+  .cmsg .mini .mm{font-size:10.5px;color:var(--muted)}
+  .cmsg .mini .mp{margin-left:auto;font-size:12px;font-weight:800;color:var(--price);white-space:nowrap}
+  .cmsg .src{font-size:10.5px;color:var(--faint);margin-top:6px}
+  .chatchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px;background:var(--bg)}
+  .chatchips button{border:1px solid var(--line);background:#fff;border-radius:13px;padding:5px 11px;font-size:11px;color:var(--indigo-d)}
+  .chatin{display:flex;gap:8px;padding:11px 12px;border-top:1px solid var(--line);background:#fff}
+  .chatin input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.8px;font-family:inherit;outline:none}
+  .chatin input:focus{border-color:var(--indigo)}
+  .chatin button{border:none;background:var(--indigo);color:#fff;border-radius:10px;padding:0 16px;font-weight:700}
+  .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 20px;border-radius:22px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
+  .toast.show{opacity:1}
+  .devnote{font-size:11.5px;color:var(--faint);margin-top:20px;padding-top:12px;border-top:1px solid var(--line2)}
+</style>
+<style id="uxv2">
+  :root{
+    --bg:#F6F7F9; --card:#FFF; --line:#E6E8EC; --line2:#F0F1F4;
+    --text:#111827; --muted:#6B7280; --faint:#9CA3AF;
+    --indigo:#4F46E5; --indigo-d:#4338CA; --indigo-bg:#EEF2FF;
+    --price:#111827; --green:#10B981; --green-bg:#ECFDF5;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --shadow-lg:0 4px 6px -2px rgba(16,24,40,.05),0 12px 26px -6px rgba(16,24,40,.12);
+  }
+  body{font-family:'Pretendard','Segoe UI','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);
+       -webkit-font-smoothing:antialiased}
+  /* 헤더 */
+  header{box-shadow:0 1px 0 var(--line), 0 4px 14px -8px rgba(16,24,40,.08)}
+  .logo{font-size:20px;letter-spacing:-.03em}
+  .logo .zp{background:linear-gradient(135deg,#6366F1,#8B5CF6);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .gnav button{font-weight:600;border-radius:0;transition:color .12s}
+  .gnav button:hover{color:var(--text)}
+  .gnav button.on{color:var(--indigo);border-bottom:2.5px solid var(--indigo)}
+  .searchbox input{background:#F3F4F6;border:1.5px solid transparent;border-radius:12px;transition:all .15s}
+  .searchbox input:focus{background:#fff;border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-bg);outline:none}
+  .searchbox .go{background:var(--indigo);border-radius:9px}
+  .joinb{background:linear-gradient(135deg,#6366F1,#7C3AED);border-radius:11px;font-weight:700;
+         box-shadow:0 2px 6px -1px rgba(99,102,241,.4);transition:transform .12s, box-shadow .12s}
+  .joinb:hover{transform:translateY(-1px);box-shadow:0 4px 10px -2px rgba(99,102,241,.5)}
+  .profileb{border-radius:11px;transition:border-color .12s, background .12s}
+  .profileb:hover{border-color:#C7D2FE;background:#FAFAFF}
+  /* 사이드 필터 */
+  aside section{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  aside h5{font-size:10.5px;font-weight:800;letter-spacing:.07em;color:var(--faint);text-transform:uppercase}
+  .cat{border-radius:9px;border:1px solid var(--line);transition:all .12s}
+  .cat:hover{border-color:#C7D2FE;color:var(--indigo)}
+  .cat.on{background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:700;
+          box-shadow:0 2px 5px -1px rgba(79,70,229,.35)}
+  .swrow{border-radius:8px;transition:background .1s}
+  .swrow input{accent-color:var(--indigo)}
+  .resetb{border-radius:10px;font-weight:600;transition:all .12s}
+  .resetb:hover{border-color:var(--faint);background:#FAFAFA}
+  /* 툴바 */
+  .toolbar select{border-radius:10px;border:1px solid var(--line);box-shadow:var(--shadow);font-weight:600}
+  /* 상품 카드 */
+  .grid{gap:14px}
+  .pcard{border-radius:16px;box-shadow:var(--shadow);transition:transform .15s, box-shadow .15s;overflow:hidden}
+  .pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:#D6DAFB}
+  .thumb{border-radius:12px;background:#FAFAFC;border:1px solid var(--line2)}
+  .pcard h4{font-weight:700;letter-spacing:-.01em}
+  .brand{font-size:11.5px}
+  .bdg{border-radius:6px;font-weight:600}
+  .bdg.airec{background:linear-gradient(135deg,#EEF2FF,#F5F3FF);color:#6D28D9;border:1px solid #DDD6FE;font-weight:700}
+  .krw{font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .krw small{color:var(--muted);font-weight:600}
+  .stock{font-variant-numeric:tabular-nums}
+  .cardacts button{border-radius:10px;font-weight:600;transition:all .12s}
+  .cardacts button:hover{border-color:#C7D2FE;background:#FAFAFF}
+  .cardacts button.buy{background:var(--indigo);font-weight:700;box-shadow:0 2px 5px -1px rgba(79,70,229,.35)}
+  .cardacts button.buy:hover{background:var(--indigo-d)}
+  .cmpb{border-radius:8px;font-weight:600;backdrop-filter:blur(3px);background:rgba(255,255,255,.85)}
+  .cmpb.on{background:var(--indigo);box-shadow:0 2px 5px -1px rgba(79,70,229,.4)}
+  /* 비교 트레이 · 모달 */
+  .tray{box-shadow:0 -6px 24px -8px rgba(16,24,40,.16);border-top:1px solid var(--line)}
+  .traygo{border-radius:11px;font-weight:700;background:var(--indigo)}
+  .modal{border-radius:20px;box-shadow:0 24px 60px -12px rgba(16,24,40,.3)}
+  .chip{border-radius:9px;transition:all .12s}
+  .chip.on{background:var(--indigo);border-color:var(--indigo);box-shadow:0 2px 5px -1px rgba(79,70,229,.35)}
+  /* 장바구니 · 주문 */
+  .lrow{border-radius:12px}
+  .qty button{border-radius:8px}
+  .orderbar{border-radius:16px;box-shadow:var(--shadow-lg);border:1px solid var(--line)}
+  .orderbar button{border-radius:12px;font-weight:700;background:var(--indigo)}
+  /* 챗봇 */
+  .chatfab{background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 8px 20px -6px rgba(99,102,241,.55);
+           transition:transform .15s, box-shadow .15s}
+  .chatfab:hover{transform:scale(1.07);box-shadow:0 10px 26px -6px rgba(99,102,241,.65)}
+  .chatpanel{border-radius:18px;box-shadow:0 24px 60px -12px rgba(16,24,40,.28);border:1px solid var(--line)}
+  .chathead{background:linear-gradient(135deg,#4F46E5,#7C3AED)}
+  .cmsg.user{background:var(--indigo)}
+  .chatin input:focus{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-bg)}
+  .chatin button{background:var(--indigo);border-radius:10px}
+  .chatchips button{border-radius:16px;transition:all .12s}
+  .chatchips button:hover{border-color:var(--indigo);color:var(--indigo)}
+  .toast{border-radius:12px;box-shadow:var(--shadow-lg)}
+  .devnote{border-radius:12px}
+</style>
+</head>
+<body>
+
+<header><div class="hw">
+  <div class="logo">🥤 Zero<span class="zp">Pick</span></div>
+  <nav class="gnav" id="gnav"></nav>
+  <div class="searchbox"><input id="q" placeholder="제품명, 브랜드로 검색해보세요" oninput="render()"><button class="go">⌕</button></div>
+  <div class="hbtns">
+    <button class="profileb" onclick="openProfile()">👤 내 프로필 <b id="banCnt"></b></button>
+    <span id="authbtns"></span><button class="profileb" style="color:var(--faint)" onclick="window.open('ZeroPick_관리자.html')" title="백엔드 공유용 — 이벤트 로그·성과 집계">🛠 관리자</button>
+  </div>
+</div></header>
+
+<div class="wrap" id="wrap"></div>
+
+<div class="tray" id="tray"><div class="trayw" id="trayw"></div></div>
+<div class="modalbg" id="modalbg" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<button class="chatfab" onclick="toggleChat()">💬</button>
+<div class="chatpanel" id="chatpanel">
+  <div class="chathead">🤖 제로픽 상담봇 <small>LLM · recommendation-service</small><button class="x2" onclick="toggleChat()">✕</button></div>
+  <div class="chatmsgs" id="chatmsgs"></div>
+  <div class="chatchips" id="chatchips"></div>
+  <div class="chatin"><input id="chatq" placeholder="예: 말티톨 없는 제로 초콜릿 5천원 이하"
+    onkeydown="if(event.key==='Enter')sendChat()"><button onclick="sendChat()">전송</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════ 더미 데이터 — zerofinder 실제 상품 기반 ════════════════ */
+const SW_ALL = ["D-말티톨","D-소비톨액","나한과추출분말","말티톨","수크랄로스","스테비아","스테비올 배당체","아라비아검","아세설팜칼륨","아스파탐","알룰로스","에리스리톨","이소말트","자일리톨","효소처리스테비아"];
+const CATS = ["음료","간식/디저트","육가공품","조미료/소스","유제품","기타","주식/면류","즉석식품","건강기능식품","수산가공품"];
+
+const pic=p=>p.img?`<img src="${p.img}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;border-radius:inherit" onerror="this.remove()">`:"";
+const P = [
+ {id:1, name:"저당 망고 쫀득바 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:80, sugar:4, carb:24, sw:["알룰로스","아세설팜칼륨","효소처리스테비아","수크랄로스"], price:28900, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0NMBG53AXBR00.png"},
+ {id:2, name:"저당 멜론 쫀득바 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:75, sugar:3, carb:24, sw:["알룰로스","수크랄로스","아세설팜칼륨","효소처리스테비아"], price:28900, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0NMBCEAJ5KR00.png"},
+ {id:3, name:"망고 생요거트 파인트 474mL", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:80, sugar:3, carb:17, sw:["알룰로스","에리스리톨","아세설팜칼륨","수크랄로스"], price:5900, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0NPYBRBQS8800.png"},
+ {id:4, name:"저당 골드키위파인 듬뿍바 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:55, sugar:4, carb:18, sw:["알룰로스","수크랄로스","아세설팜칼륨","에리스리톨"], price:9900, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0NMB8TG777R00.png"},
+ {id:5, name:"저당 애플망고 생요거트바 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:75, sugar:3, carb:18, sw:["알룰로스","에리스리톨","아세설팜칼륨","수크랄로스"], price:7110, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0NMAY8CPRZR00.png"},
+ {id:6, name:"덴마크 드링킹 요구르트 제로 플레인", brand:"동원F&B(에프앤비) 정읍공장", cat:"유제품", e:"🥛", kcal:47, sugar:4.73, carb:10.18, sw:[], price:11600, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQJWR07V000.png"},
+ {id:7, name:"덴마크 드링킹 요구르트 제로 사과", brand:"동원", cat:"유제품", e:"🥛", kcal:47, sugar:4.73, carb:9.82, sw:["말티톨"], price:17400, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQHYNRRF000.png"},
+ {id:8, name:"제로윗 당제로 초코 모나카", brand:"펄세스", cat:"간식/디저트", e:"🍫", kcal:106, sugar:0, carb:20.72, sw:["알룰로스","에리스리톨","수크랄로스"], price:9400, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQGDAWVZ000.png"},
+ {id:9, name:"제로아워 알파시디 애사비 사과맛", brand:"건강한사람들", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:3.14, sw:["에리스리톨","수크랄로스","스테비올 배당체"], price:9700, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQFWBSZV000.png"},
+ {id:10, name:"모구모구 제로슈가 써머베리", brand:"모구모구", cat:"음료", e:"🥤", kcal:8, sugar:0, carb:2, sw:["아세설팜칼륨","수크랄로스","스테비올 배당체"], price:9000, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQF58AGV000.png"},
+ {id:11, name:"파리의 이온비타제로 납작복숭아 레몬", brand:"퓨어플러스", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:2.5, sw:["에리스리톨","수크랄로스"], price:47520, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0NJQDZ8463000.png"},
+ {id:12, name:"망고 생요거트 파인트", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:107, sugar:4.29, carb:25.72, sw:["에리스리톨","알룰로스"], price:33900, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0NJBX9161G400.png"},
+ {id:13, name:"하이드로 웨이 제로 바닐라", brand:"바이오테크", cat:"음료", e:"🥤", kcal:264, sugar:0, carb:8, sw:["수크랄로스"], price:14500, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0NJ26TCK4R400.png"},
+ {id:14, name:"슈퍼제로 락토프리 우유", brand:"남양", cat:"유제품", e:"🥛", kcal:34, sugar:4.6, carb:5.5, sw:[], price:2490, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0NJ26MYK4C400.png"},
+ {id:15, name:"포지타노 제로슈가 캔디 레몬맛", brand:"페를레디솔레", cat:"간식/디저트", e:"🍫", kcal:92, sugar:0, carb:38.4, sw:["이소말트","D-소비톨액","아세설팜칼륨","수크랄로스"], price:4830, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0NJ263XCB0400.png"},
+ {id:16, name:"뉴욕 셀처 블랙 체리 맛 스파클링 워터 제로", brand:"튤립인터내셔널", cat:"음료", e:"🥤", kcal:9, sugar:0, carb:2.31, sw:[], price:17000, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0NJ25CDKHG400.png"},
+ {id:17, name:"제로슈가 단백질바 피넛버터 다크초콜릿", brand:"KIND", cat:"간식/디저트", e:"🍫", kcal:150, sugar:1, carb:14, sw:["알룰로스"], price:8100, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0NJ24Q2XT4400.png"},
+ {id:18, name:"오로바일렌 피쿠알 엑스트라버진 올리브오일", brand:"오로바일렌", cat:"유제품", e:"🥛", kcal:837, sugar:0, carb:0, sw:[], price:14000, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0NHWN4J8C0400.png"},
+ {id:19, name:"서울팩토리 제로 티 베이스 캐모마일&사과향 아이스티 액상", brand:"서울팩토리", cat:"음료", e:"🥤", kcal:23, sugar:1, carb:41, sw:["아세설팜칼륨","수크랄로스","아라비아검"], price:29500, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0NHSSA5A2G400.png"},
+ {id:20, name:"자몽 허니  블랙 티 베이스 제로", brand:"푸른나무", cat:"음료", e:"🥤", kcal:33, sugar:2, carb:8, sw:["수크랄로스","아세설팜칼륨"], price:18700, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0NHSR6HN0C400.png"},
+ {id:21, name:"제로푸냥이 푸딩젤리 라임콜라맛", brand:"건영제과", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:9800, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0NHSQVC3W4400.png"},
+ {id:22, name:"아질산나트륨 무첨가 저먼제로 비엔나", brand:"태림에프웰", cat:"육가공품", e:"🍖", kcal:314, sugar:1, carb:6, sw:[], price:10100, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0NHSQ9TSP4400.png"},
+ {id:23, name:"잇츠베러 제로슈가 쿠키 더블초코", brand:"잇츠베러", cat:"간식/디저트", e:"🍫", kcal:440, sugar:0, carb:62.5, sw:["D-말티톨","수크랄로스"], price:2410, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0NHSPERK3M400.png"},
+ {id:24, name:"멜론", brand:"더단백", cat:"음료", e:"🥤", kcal:109, sugar:0.9, carb:5.7, sw:["알룰로스","수크랄로스","아세설팜칼륨"], price:11100, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0MNZ1BVT6Z000.png"},
+ {id:25, name:"그릭슈바인 제로닭 청양고추", brand:"에스피씨삼립 서천공장", cat:"육가공품", e:"🍖", kcal:167, sugar:0, carb:0.8, sw:["효소처리스테비아"], price:11900, stock:26, img:"https://s3.zerofinder.co.kr/public/products/original/0MJQVQPYQX400.png"},
+ {id:26, name:"오늘좋은 아샷추 복숭아 제로", brand:"태웅식품", cat:"음료", e:"🥤", kcal:5, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨"], price:9800, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0MEN5QWM29400.png"},
+ {id:27, name:"링티 제로 복숭아맛", brand:"삼양", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:9, sw:["에리스리톨","아라비아검","수크랄로스"], price:9800, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0MEN5BSK8H400.png"},
+ {id:28, name:"닥터로빈 제로 떡볶이 로제", brand:"한맥푸드", cat:"즉석식품", e:"🍱", kcal:160, sugar:0, carb:37, sw:["에리스리톨","알룰로스"], price:9200, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0MEN4T278D400.png"},
+ {id:29, name:"고단백 저당 슬랩", brand:"널담", cat:"간식/디저트", e:"🍫", kcal:223, sugar:1.5, carb:39, sw:[], price:9800, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0MDX5N56JS400.png"},
+ {id:30, name:"고단백 배꼽 베이글 플레인", brand:"널담", cat:"간식/디저트", e:"🍫", kcal:391, sugar:1.5, carb:61, sw:["에리스리톨"], price:7600, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0MDX53D0DH400.png"},
+ {id:31, name:"고단백 저당 포카치아 토마토바질치즈", brand:"널담", cat:"간식/디저트", e:"🍫", kcal:184, sugar:3.2, carb:24, sw:[], price:10800, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0MDX304FDS400.png"},
+ {id:32, name:"고단백 저당 포카치아 감자페퍼", brand:"널담", cat:"간식/디저트", e:"🍫", kcal:232, sugar:2.5, carb:28, sw:[], price:5200, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0MDQ5RRH19400.png"},
+ {id:33, name:"프로틴 초코맛", brand:"얼티브", cat:"음료", e:"🥤", kcal:125, sugar:0, carb:2, sw:["아세설팜칼륨","수크랄로스"], price:18300, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0MDQ37SJ51400.png"},
+ {id:34, name:"프로틴 바나나", brand:"얼티브", cat:"음료", e:"🥤", kcal:115, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:18900, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0MDQ2SX51H400.png"},
+ {id:35, name:"프로틴 로얄밀크티향", brand:"얼티브", cat:"음료", e:"🥤", kcal:115, sugar:0, carb:1, sw:["아세설팜칼륨","수크랄로스"], price:15300, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0MDQ2CSYDS400.png"},
+ {id:36, name:"프로틴 피스타치오맛", brand:"얼티브", cat:"음료", e:"🥤", kcal:115, sugar:0, carb:1, sw:["아세설팜칼륨","수크랄로스"], price:9500, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0MDQ1ZWTCD400.png"},
+ {id:37, name:"프로틴 쌀밥맛", brand:"얼티브", cat:"음료", e:"🥤", kcal:110, sugar:0, carb:0, sw:["아세설팜칼륨","수크랄로스"], price:11300, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0MDPZQCD4N400.png"},
+ {id:38, name:"프로틴 단백질 밤맛", brand:"얼티브", cat:"음료", e:"🥤", kcal:115, sugar:0, carb:1, sw:["아세설팜칼륨","수크랄로스"], price:20100, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0MDPZ5HYEW800.png"},
+ {id:39, name:"맛있는 곤약젤리 골드키위 & 파인", brand:"슈가로로", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:12, sw:["에리스리톨","수크랄로스"], price:6200, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0MDCBRN92RM00.png"},
+ {id:40, name:"맛있는 곤약젤리 청포도", brand:"슈가로로", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:13, sw:["에리스리톨","수크랄로스"], price:7100, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC8ZYP08M00.png"},
+ {id:41, name:"맛있는 곤약젤리 망고", brand:"슈가로로", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:14, sw:["에리스리톨","수크랄로스"], price:8700, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC8AFDXCM00.png"},
+ {id:42, name:"맛있는 곤약젤리 복숭아", brand:"슈가로로", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:13, sw:["에리스리톨","수크랄로스"], price:5700, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC7AZK20M00.png"},
+ {id:43, name:"무설탕 비타민 구미 젤리 복숭아", brand:"슈가로로", cat:"간식/디저트", e:"🍫", kcal:88, sugar:18, carb:28, sw:["말티톨","D-말티톨","효소처리스테비아"], price:6000, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC6DA2NWM00.png"},
+ {id:44, name:"스파클링 샤인머스캣", brand:"슈가로로", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["에리스리톨","스테비올 배당체","아세설팜칼륨"], price:17290, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC5AKHJWM00.png"},
+ {id:45, name:"스파클링 복숭아 탄산음료", brand:"슈가로로", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.3, sw:["에리스리톨","수크랄로스","아세설팜칼륨"], price:19500, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0MDC45JGWWM00.png"},
+ {id:46, name:"리얼 닭가슴살칩 오리지널", brand:"신선어람", cat:"육가공품", e:"🍖", kcal:110, sugar:1, carb:1, sw:[], price:7100, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0MC2ZHZWGY000.png"},
+ {id:47, name:"리얼 닭가슴살칩 블랙페퍼", brand:"신선어람", cat:"육가공품", e:"🍖", kcal:105, sugar:1, carb:2, sw:[], price:7900, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0MC2YDE5F2000.png"},
+ {id:48, name:"리얼 닭가슴살칩 허브갈릭", brand:"신선어람", cat:"육가공품", e:"🍖", kcal:110, sugar:1, carb:0, sw:[], price:8600, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0MC2WWGWXE000.png"},
+ {id:49, name:"리얼 닭가슴살칩 스파이시", brand:"신선어람", cat:"육가공품", e:"🍖", kcal:115, sugar:2, carb:3, sw:["효소처리스테비아"], price:9800, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0MC2W58K3P000.png"},
+ {id:50, name:"제로슈가 춘천식 닭갈비", brand:"한강식품", cat:"육가공품", e:"🍖", kcal:203, sugar:0, carb:6, sw:["효소처리스테비아"], price:12400, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0MBB8KQYPBR00.png"},
+ {id:51, name:"밀크초코볼 헤이즐넛", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:163, sugar:2, carb:11, sw:["알룰로스"], price:9000, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GWR17V3R00.png"},
+ {id:52, name:"초콜릿 아이스크림", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:120, sugar:2, carb:14, sw:["알룰로스","효소처리스테비아"], price:9600, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GW1NZ2FR00.png"},
+ {id:53, name:"알룰로스", brand:"마이노멀", cat:"기타", e:"🛒", kcal:0, sugar:0, carb:99, sw:["스테비올 배당체","나한과추출분말","알룰로스"], price:12900, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GVGRW9QR00.png"},
+ {id:54, name:"저당 바닐라 라떼", brand:"마이노멀", cat:"음료", e:"🥤", kcal:110, sugar:8, carb:22, sw:["알룰로스","효소처리스테비아","나한과추출분말"], price:18200, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GTZ56PKR00.png"},
+ {id:55, name:"제로젤리 포도베어", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:40, sugar:0, carb:28, sw:["알룰로스","효소처리스테비아"], price:6700, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GT57FQQR00.png"},
+ {id:56, name:"무가당 땅콩버터 스틱 크런치", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:120, sugar:1, carb:4, sw:[], price:5100, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GSATAZFR00.png"},
+ {id:57, name:"오리지널 디카페인 방탄커피", brand:"마이노멀", cat:"음료", e:"🥤", kcal:150, sugar:0, carb:3.8, sw:[], price:18800, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GRTYHCVR00.png"},
+ {id:58, name:"바닐라 아이스크림", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:110, sugar:2, carb:14.7, sw:["알룰로스","효소처리스테비아"], price:6000, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0M9GR1BZZVR00.png"},
+ {id:59, name:"초코잼", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:210, sugar:3.3, carb:49, sw:["알룰로스","나한과추출분말","효소처리스테비아"], price:7000, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0M96XNXMABR00.png"},
+ {id:60, name:"저당 굴소스", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:20, sugar:0, carb:29, sw:["알룰로스","나한과추출분말"], price:7970, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0M96WCKNWFR00.png"},
+ {id:61, name:"저당 저칼로리 블루베리잼", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:30, sugar:4.8, carb:62, sw:["알룰로스"], price:12250, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0M96W0ZB7KR00.png"},
+ {id:62, name:"저당 고추장", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:100, sugar:0, carb:40, sw:["알룰로스"], price:6200, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0M96VJH9VZR00.png"},
+ {id:63, name:"무가당 땅콩버터 100% 크런치", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:620, sugar:6, carb:21, sw:[], price:9200, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M96TXWR27R00.png"},
+ {id:64, name:"저당 머스타드", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:144, sugar:0, carb:29, sw:["알룰로스","스테비올 배당체"], price:6200, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0M96TCK28FR00.png"},
+ {id:65, name:"저당 드레싱 참깨흑임자", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:315, sugar:0, carb:14, sw:["알룰로스","스테비올 배당체"], price:7200, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0M96SJBTW3R00.png"},
+ {id:66, name:"저당 오리엔탈 드레싱", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:65, sugar:0, carb:25, sw:["알룰로스","스테비올 배당체"], price:7000, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0M96S10SE7R00.png"},
+ {id:67, name:"저칼로리 케찹", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:37, sugar:5, carb:20, sw:["알룰로스","스테비올 배당체"], price:10700, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0M96RDWBV3R00.png"},
+ {id:68, name:"딸기잼", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:30, sugar:3, carb:62, sw:["알룰로스"], price:7700, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0M96QQQNV7R00.png"},
+ {id:69, name:"저당 마요네즈", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:560, sugar:0, carb:8, sw:["스테비올 배당체","알룰로스"], price:9200, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M96N4XZQZR00.png"},
+ {id:70, name:"저당 저칼로리 알룰로스", brand:"마이노멀", cat:"조미료/소스", e:"🧂", kcal:8, sugar:1, carb:72, sw:["알룰로스","스테비올 배당체","아라비아검"], price:5200, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0M96MVBJQZR00.png"},
+ {id:71, name:"뺀닭 제로슈가 닭가슴살 데리야끼맛", brand:"미가온푸드", cat:"육가공품", e:"🍖", kcal:115, sugar:0, carb:2, sw:["알룰로스","D-소비톨액"], price:7900, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0M88TBRP36800.png"},
+ {id:72, name:"뺀닭 제로슈가 닭가슴살 허니갈릭맛", brand:"미가온푸드", cat:"육가공품", e:"🍖", kcal:110, sugar:0, carb:7, sw:["알룰로스"], price:10100, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M88SKSSXJ800.png"},
+ {id:73, name:"젤리블리 제로슈거 납작복숭아 젤리", brand:"젤리블리", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:9.8, sw:["에리스리톨","수크랄로스","효소처리스테비아"], price:7100, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0M88R748JJ800.png"},
+ {id:74, name:"왓더파머스 제로 알룰로스 액상", brand:"왓더파머스", cat:"간식/디저트", e:"🍫", kcal:10, sugar:0, carb:74, sw:["알룰로스"], price:11000, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0M88QKE0EJ800.png"},
+ {id:75, name:"잇츠베러 제로슈가 황치즈향 쿠키", brand:"잇츠베러", cat:"간식/디저트", e:"🍫", kcal:173, sugar:0, carb:25, sw:["D-말티톨","효소처리스테비아"], price:6300, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0M88PHW9NP800.png"},
+ {id:76, name:"아침에 좋은빵 제로슈가 통밀빵", brand:"와이앤제이코퍼레이션", cat:"간식/디저트", e:"🍫", kcal:268, sugar:1.2, carb:43.28, sw:[], price:10100, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M88NNYC0J800.png"},
+ {id:77, name:"잇츠베러 제로슈가 스윗오트 쿠키", brand:"잇츠베러", cat:"간식/디저트", e:"🍫", kcal:173, sugar:0, carb:25, sw:["D-말티톨","효소처리스테비아","수크랄로스"], price:9000, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0M88MB9CH2800.png"},
+ {id:78, name:"제로 복숭아 아이스티베이스", brand:"그린트리", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0.08, carb:8.39, sw:["에리스리톨","알룰로스","수크랄로스","효소처리스테비아","아세설팜칼륨"], price:9000, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M88K1TR6Y800.png"},
+ {id:79, name:"라이블링 애사비 소다 제로 사과맛", brand:"웅진", cat:"음료", e:"🥤", kcal:24, sugar:2, carb:4, sw:["아세설팜칼륨","수크랄로스"], price:17400, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0M88JBV3EE800.png"},
+ {id:80, name:"데일리구미 멀티비타민 제로슈가", brand:"서주2공장", cat:"간식/디저트", e:"🍫", kcal:427, sugar:0, carb:123, sw:["D-소비톨액","아라비아검","효소처리스테비아"], price:8700, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YPD9JNE800.png"},
+ {id:81, name:"비타민C1000 스파클링 제로", brand:"고려은단", cat:"음료", e:"🥤", kcal:10, sugar:0, carb:12, sw:["에리스리톨","효소처리스테비아","수크랄로스","아세설팜칼륨","아라비아검"], price:12100, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YNCJMCA800.png"},
+ {id:82, name:"제로아워 알파시디 레몬수", brand:"퓨럽", cat:"음료", e:"🥤", kcal:15, sugar:0, carb:12, sw:["에리스리톨","수크랄로스","스테비올 배당체"], price:13900, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YKTJBJA800.png"},
+ {id:83, name:"세네 에너지 제로슈거 자몽", brand:"상일", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.55, sw:["에리스리톨","아세설팜칼륨","수크랄로스"], price:18800, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YJSD13J800.png"},
+ {id:84, name:"이강베 제로복숭아아이스티", brand:"자연농장", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0, sw:["알룰로스"], price:19900, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YHHMGW6800.png"},
+ {id:85, name:"이디야 제로슈가쿠키 스윗오트", brand:"더플랜잇", cat:"간식/디저트", e:"🍫", kcal:175, sugar:0, carb:25, sw:["D-말티톨","효소처리스테비아","수크랄로스"], price:5800, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YG9YXDE800.png"},
+ {id:86, name:"포켓몬 애사비 젤리 믹스 제로", brand:"에스디푸드", cat:"간식/디저트", e:"🍫", kcal:200, sugar:0, carb:74, sw:["말티톨"], price:10200, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0M7YB4EYBY800.png"},
+ {id:87, name:"파리의 이온비타제로 레몬", brand:"퓨어플러스", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:2.4, sw:["에리스리톨","수크랄로스"], price:18400, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0M7Y99Q0SP800.png"},
+ {id:88, name:"제로닭 닭가슴살볼 양념치킨", brand:"삼립", cat:"육가공품", e:"🍖", kcal:226, sugar:1, carb:11, sw:["효소처리스테비아","알룰로스"], price:20500, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0M7Y8G50YT800.png"},
+ {id:89, name:"더 라이트 제로 자몽베이스", brand:"서울팩토리", cat:"음료", e:"🥤", kcal:25, sugar:2, carb:47, sw:["알룰로스","아라비아검","D-소비톨액","수크랄로스"], price:11000, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0M7Y5A5ZV2800.png"},
+ {id:90, name:"제로슈가쿠키 더블초코", brand:"잇츠베러", cat:"간식/디저트", e:"🍫", kcal:173, sugar:0, carb:25, sw:["D-말티톨","효소처리스테비아","수크랄로스","말티톨"], price:13000, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0M79857YVJ400.png"},
+ {id:91, name:"티즐 유자 그린티", brand:"웅진", cat:"음료", e:"🥤", kcal:5, sugar:9, carb:8.8, sw:["에리스리톨","아세설팜칼륨","수크랄로스","스테비올 배당체"], price:15690, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0M7968SXD2400.png"},
+ {id:92, name:"밀크소다 제로 메론", brand:"부르르", cat:"음료", e:"🥤", kcal:8, sugar:1, carb:3, sw:["수크랄로스","알룰로스","아세설팜칼륨"], price:10600, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M78NKMN6P400.png"},
+ {id:93, name:"저당 넛티초코바 초콜릿", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:120, sugar:2, carb:14, sw:["에리스리톨","알룰로스"], price:7900, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0M74YKK7QJ400.png"},
+ {id:94, name:"리얼 피스타치오 젤라또바 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:105, sugar:2, carb:16, sw:["알룰로스","아세설팜칼륨","수크랄로스","소르비톨"], price:7990, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0M74Y39DVJ400.png"},
+ {id:95, name:"저당 헤이즐넛 초코웨하스", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:375, sugar:2.8, carb:51, sw:["이소말트","수크랄로스","효소처리스테비아"], price:10010, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M74XHM0DE400.png"},
+ {id:96, name:"저당 바닐라 초코바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:170, sugar:2, carb:20, sw:["에리스리톨","알룰로스","아세설팜칼륨","수크랄로스"], price:8500, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0M74W5Y2RP400.png"},
+ {id:97, name:"치즈케이크 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:75, sugar:6, carb:12, sw:["에리스리톨","알룰로스"], price:4800, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0M74VQKNY6400.png"},
+ {id:98, name:"생요거트 아사이볼", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:90, sugar:8, carb:37, sw:["알룰로스","에리스리톨","수크랄로스"], price:5860, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0M74V46MPA400.png"},
+ {id:99, name:"저당 넛티초코바 바닐라", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:145, sugar:3, carb:17, sw:["에리스리톨","알룰로스","아세설팜칼륨","수크랄로스"], price:7110, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0M74TNE2CJ400.png"},
+ {id:100, name:"저당 생요거트 플레인 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:90, sugar:3, carb:15, sw:["에리스리톨","아세설팜칼륨","수크랄로스","말토덱스트린"], price:6710, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0M74T0PMWA400.png"},
+ {id:101, name:"저당 블루베리 생요거트바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:75, sugar:4, carb:17, sw:["에리스리톨","아세설팜칼륨","수크랄로스"], price:7900, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0M74SFTY46400.png"},
+ {id:102, name:"생우유 모나카 아이스크림", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:120, sugar:4, carb:22, sw:["알룰로스","에리스리톨","효소처리스테비아"], price:6580, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0M74S2CCSA400.png"},
+ {id:103, name:"초콜릿 모나카 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:100, sugar:3, carb:19, sw:["에리스리톨","알룰로스","효소처리스테비아"], price:7520, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0M74R0D1HT400.png"},
+ {id:104, name:"말차 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:70, sugar:6, carb:15, sw:["알룰로스","에리스리톨","효소처리스테비아"], price:9440, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M74QD4PTP400.png"},
+ {id:105, name:"바닐라빈 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:75, sugar:5, carb:13, sw:["알룰로스","수크랄로스","아세설팜칼륨"], price:6320, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0M74PN7NX6400.png"},
+ {id:106, name:"생우유 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:70, sugar:6, carb:13, sw:["에리스리톨","알룰로스","효소처리스테비아"], price:6320, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0M74P2YZZY400.png"},
+ {id:107, name:"저당 쫀득옥수수 듬뿍바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:85, sugar:3, carb:19, sw:["에리스리톨","알룰로스","수크랄로스"], price:9400, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0M74N10NGY400.png"},
+ {id:108, name:"초콜릿 아이스밀크", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:70, sugar:4, carb:14.5, sw:["효소처리스테비아","알룰로스"], price:7800, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FYDVHKNM00.png"},
+ {id:109, name:"저당 멜론바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:100, sugar:3, carb:16, sw:["알룰로스","아세설팜칼륨","수크랄로스"], price:10900, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FXJ98XDM00.png"},
+ {id:110, name:"저당 쿠키앤크림 초코바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:145, sugar:1, carb:21, sw:["에리스리톨","알룰로스","말티톨"], price:9500, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FWRNWW9M00.png"},
+ {id:111, name:"저당 복숭아 생요거트바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:80, sugar:3, carb:17, sw:["에리스리톨","알룰로스","아세설팜칼륨","수크랄로스"], price:8900, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FW21KJHM00.png"},
+ {id:112, name:"저당 딸기 생요거트바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:80, sugar:3, carb:17, sw:["에리스리톨","알룰로스","아세설팜칼륨","수크랄로스"], price:5700, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FVBD2G9M00.png"},
+ {id:113, name:"저당 초콜릿 초코바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:150, sugar:2, carb:18.5, sw:["알룰로스","에리스리톨"], price:10200, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0M6FTKCDJHM00.png"},
+ {id:114, name:"제로슈거 파비플로라 알파CD 보라워터", brand:"삼양", cat:"음료", e:"🥤", kcal:12, sugar:0, carb:8, sw:["스테비올 배당체"], price:19800, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M6BDJZMQXM00.png"},
+ {id:115, name:"서주 탱글탱글 제로 사과맛", brand:"서주제과", cat:"간식/디저트", e:"🍫", kcal:87, sugar:0, carb:32, sw:["D-말티톨","D-소비톨액","효소처리스테비아","아세설팜칼륨"], price:9500, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0M6BCPS9QDM00.png"},
+ {id:116, name:"야쿠르트1971 코코바이트 제로", brand:"삼양패키징 광혜원 공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:7, sw:["에리스리톨","아세설팜칼륨","수크랄로스","스테비올 배당체","D-소비톨액","아라비아검"], price:11000, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0M6BBG5T6DM00.png"},
+ {id:117, name:"보성홍차 아이스티 제로 샤인머스캣", brand:"동원", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨","스테비올 배당체"], price:13300, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M6BAVAT5SM00.png"},
+ {id:118, name:"제로 아이스 트리플 초콜릿바", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:150, sugar:0, carb:16, sw:["D-말티톨","수크랄로스"], price:8800, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B9TSS9SM00.png"},
+ {id:119, name:"보성홍차 아이스티 제로 애플", brand:"동원", cat:"음료", e:"🥤", kcal:0, sugar:1, carb:1, sw:["수크랄로스","아세설팜칼륨"], price:19100, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B8ZMN65M00.png"},
+ {id:120, name:"왓더파머스 제로 두부과자", brand:"농업회사법인 담양한과 명진식품", cat:"간식/디저트", e:"🍫", kcal:245, sugar:0, carb:23, sw:[], price:5500, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B89TXGSM00.png"},
+ {id:121, name:"제로 오렌지망고", brand:"젤리블리", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["에리스리톨","수크랄로스","효소처리스테비아"], price:5100, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B7BZJK9M00.png"},
+ {id:122, name:"납작복숭아 제로", brand:"젤리블리", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:9.8, sw:["에리스리톨","수크랄로스","효소처리스테비아"], price:8400, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B6JJ0PHM00.png"},
+ {id:123, name:"그릭슈바인 제로닭 오리지널", brand:"삼립", cat:"육가공품", e:"🍖", kcal:177, sugar:0, carb:1, sw:["효소처리스테비아"], price:11600, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B5S86F5M00.png"},
+ {id:124, name:"불가리스 유당 제로 복숭아", brand:"남양유업 세종공장", cat:"유제품", e:"🥛", kcal:60, sugar:4.9, carb:8.4, sw:[], price:9600, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B1AECRSM00.png"},
+ {id:125, name:"기름제로 케어원 콜라겐 팝콘", brand:"케어원", cat:"주식/면류", e:"🍜", kcal:110, sugar:0, carb:27, sw:["스테비아","효소처리스테비아","자일리톨"], price:6800, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M6B0AK7ANM00.png"},
+ {id:126, name:"제로당 소스퐁닭 스리라차마요", brand:"아임닭", cat:"육가공품", e:"🍖", kcal:115, sugar:0, carb:3, sw:["D-소비톨액","알룰로스","효소처리스테비아"], price:14300, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M6AZQJ2RHM00.png"},
+ {id:127, name:"그릭슈바인 제로닭 블랙페퍼", brand:"삼립", cat:"육가공품", e:"🍖", kcal:175, sugar:0, carb:0.5, sw:["효소처리스테비아"], price:9300, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0M6AY7JVV9M00.png"},
+ {id:128, name:"캐치!티니핑 제로 애플망고맛", brand:"웅진식품", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.5, sw:["에리스리톨","수크랄로스","스테비올 배당체","아라비아검"], price:11400, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M6AREREKDM00.png"},
+ {id:129, name:"제로 단호박 단백질 설기떡", brand:"별미힘떡", cat:"간식/디저트", e:"🍫", kcal:188, sugar:1, carb:32, sw:["에리스리톨","스테비아"], price:7800, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M6AQG8661M00.png"},
+ {id:130, name:"샤인머스켓 제로슈가", brand:"젤리블리", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["에리스리톨","효소처리스테비아","수크랄로스"], price:5500, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M6AP3MFVXM00.png"},
+ {id:131, name:"제로슈거 하이진저 레몬생강청", brand:"안동농협생강한약재유통센터", cat:"음료", e:"🥤", kcal:25, sugar:0, carb:196, sw:["말토덱스트린","수크랄로스","아세설팜칼륨"], price:15300, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0M6783A06NM00.png"},
+ {id:132, name:"팅글닥터구미젤리 제로슈가", brand:"에스디푸드", cat:"간식/디저트", e:"🍫", kcal:110, sugar:0, carb:32, sw:["말티톨","효소처리스테비아"], price:9600, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0M676WBXQHM00.png"},
+ {id:133, name:"아사삭 당제로 콜라향아이스", brand:"스위트코리아", cat:"간식/디저트", e:"🍫", kcal:7, sugar:0, carb:9.5, sw:["에리스리톨","수크랄로스"], price:7300, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M675YXF7SM00.png"},
+ {id:134, name:"제로슈가 아쌈블렌드 밀크티 베이스", brand:"티하우스청담", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:12, sw:["알룰로스","효소처리스테비아"], price:9800, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0M66T83TADM00.png"},
+ {id:135, name:"그릭슈바인 제로닭 닭가슴살볼 마늘간장", brand:"삼립", cat:"육가공품", e:"🍖", kcal:226, sugar:1, carb:11, sw:["알룰로스","효소처리스테비아","L-글루탐산나트륨"], price:9500, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0M66RDHNZHM00.png"},
+ {id:136, name:"일화차시 제로 허니자몽블랙티", brand:"삼양", cat:"음료", e:"🥤", kcal:5, sugar:1, carb:1, sw:["수크랄로스","아세설팜칼륨"], price:14100, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0M66Q1KCTNM00.png"},
+ {id:137, name:"제로 떡볶이 로제", brand:"닥터로빈", cat:"즉석식품", e:"🍱", kcal:160, sugar:0, carb:37, sw:["에리스리톨","알룰로스"], price:6800, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0M66P7KYHSM00.png"},
+ {id:138, name:"김대감 제로슈가 스틱김자반", brand:"해담솔", cat:"수산가공품", e:"🛒", kcal:650, sugar:0.12, carb:25.91, sw:["에리스리톨","효소처리스테비아"], price:14700, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M612BE0XZC00.png"},
+ {id:139, name:"제로 아이스티 화이트피치", brand:"던킨도너츠", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.2, sw:["수크랄로스"], price:9400, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0M60ZA3K6VC00.png"},
+ {id:140, name:"일화차시 유자민트티 제로", brand:"일화", cat:"음료", e:"🥤", kcal:1, sugar:0.1, carb:0.21, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:12600, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M60YH9QRQC00.png"},
+ {id:141, name:"왓더파머스 제로 옥수수 콘칩", brand:"푸디스", cat:"간식/디저트", e:"🍫", kcal:95, sugar:0, carb:21, sw:[], price:5400, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0M60YCHFYVC00.png"},
+ {id:142, name:"데일리구미 비타민C 제로슈가", brand:"서주2공장", cat:"건강기능식품", e:"💊", kcal:421, sugar:0, carb:122, sw:["D-소비톨액","말티톨","효소처리스테비아"], price:7900, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0M60VVPQD3C00.png"},
+ {id:143, name:"타코 제로슈가 유자 파우더", brand:"가배온", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:20, sw:["에리스리톨"], price:10300, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0M60TWWFN7C00.png"},
+ {id:144, name:"린코어 제로슈거 초코 프로틴", brand:"글리시드", cat:"기타", e:"🛒", kcal:340, sugar:0, carb:23.33, sw:["에리스리톨"], price:8700, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0M60S5NSAQC00.png"},
+ {id:145, name:"zero 레몬 시럽", brand:"네이쳐티", cat:"간식/디저트", e:"🍫", kcal:16, sugar:0, carb:30, sw:["에리스리톨","알룰로스"], price:10200, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M60QQ7EGKC00.png"},
+ {id:146, name:"우리차 피치망고 아이스티", brand:"송원식품", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:5, sw:["에리스리톨"], price:13800, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M60NP97ZBC00.png"},
+ {id:147, name:"오롯이 제로슈가 커피믹스", brand:"가배온", cat:"음료", e:"🥤", kcal:30, sugar:0, carb:9, sw:["에리스리톨"], price:18600, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M60M2T1MBC00.png"},
+ {id:148, name:"팽이팽이 수박&파인애플 제로", brand:"해태", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:2, sw:["알룰로스"], price:5000, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0M60DEHF5K000.png"},
+ {id:149, name:"제주청귤 아이스티 녹차 제로", brand:"티로그", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0, sw:["수크랄로스"], price:18300, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0M60D73MAK000.png"},
+ {id:150, name:"미닛메이드 제로 피치에이드", brand:"코카콜라", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.49, sw:["아세설팜칼륨","수크랄로스"], price:19400, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0M5PFAEN4B000.png"},
+ {id:151, name:"프로틴 그래놀라 제로슈거 컵", brand:"농업회사법인 두리두리", cat:"주식/면류", e:"🍜", kcal:146, sugar:0.17, carb:23.8, sw:["말티톨","D-말티톨","알룰로스","아라비아검"], price:8300, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0M5PEDXYWZ000.png"},
+ {id:152, name:"프로틴 그래놀라 제로슈거", brand:"켈로그", cat:"주식/면류", e:"🍜", kcal:419, sugar:0.48, carb:63, sw:["말티톨","D-말티톨","아라비아검","알룰로스","효소처리스테비아"], price:10400, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0M5PDBR5FQ000.png"},
+ {id:153, name:"애플셔벗에이드 제로", brand:"자연은", cat:"음료", e:"🥤", kcal:10, sugar:0, carb:11.4, sw:["D-소비톨액","아세설팜칼륨","아라비아검","수크랄로스","스테비올 배당체"], price:18700, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0M5PB0M1RK000.png"},
+ {id:154, name:"일화차시 제로 키위그린티", brand:"삼양패키징 광혜원 공장", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.19, sw:["수크랄로스","아세설팜칼륨"], price:10600, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M5P9434VZ000.png"},
+ {id:155, name:"링티제로 레몬라임맛", brand:"링티", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:13, sw:["에리스리톨","수크랄로스"], price:20100, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0M5P8RWGAZ000.png"},
+ {id:156, name:"링티제로 복숭아맛", brand:"링티", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.6, sw:["에리스리톨","스테비올 배당체"], price:19400, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0M5P6C2063000.png"},
+ {id:157, name:"사과좋아! 말랑 스파클링 제로", brand:"INOUT", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.9, sw:["알룰로스","스테비올 배당체","수크랄로스"], price:25490, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0M3C2GKYEC000.png"},
+ {id:158, name:"마이구미 포도 ZERO% 설탕제로", brand:"오리온", cat:"간식/디저트", e:"🍫", kcal:124, sugar:0, carb:40, sw:["말티톨","아세설팜칼륨","수크랄로스"], price:6500, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0M3C1JSGBM000.png"},
+ {id:159, name:"제로 미니바이트 밀크&초코", brand:"롯데웰푸", cat:"간식/디저트", e:"🍫", kcal:68, sugar:0, carb:8, sw:["D-말티톨","수크랄로스"], price:18900, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0M3C0PP2BR000.png"},
+ {id:160, name:"나랑드 사이다 제로", brand:"동아오츠카", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아세설팜칼륨","수크랄로스"], price:11400, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0M2E9R3YJYW00.png"},
+ {id:161, name:"불가리스 유당 제로 플레인", brand:"남양유업 세종공장", cat:"유제품", e:"🥛", kcal:88, sugar:13.13, carb:13.75, sw:[], price:15300, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TY9VTGTC00.png"},
+ {id:162, name:"더캐럿 제로슈가 에너지 베이스", brand:"농업회사법인데이웰", cat:"음료", e:"🥤", kcal:20, sugar:0, carb:61, sw:["알룰로스","효소처리스테비아","수크랄로스"], price:16900, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TXT1C0AC00.png"},
+ {id:163, name:"데일리구미 유산균 제로슈가", brand:"서주2공장", cat:"간식/디저트", e:"🍫", kcal:339, sugar:0, carb:107, sw:["D-말티톨","D-소비톨액","효소처리스테비아"], price:16110, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TW1CP4PC00.png"},
+ {id:164, name:"레인보우 샤베트 스파클링 제로", brand:"배스킨라빈스", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:1, sw:["아세설팜칼륨","아스파탐","수크랄로스","D-소비톨액"], price:10900, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TMTB0B2C00.png"},
+ {id:165, name:"아이스가이 제로제로 스포츠", brand:"청아냉동식품", cat:"간식/디저트", e:"🍫", kcal:0, sugar:2, carb:2, sw:["알룰로스","수크랄로스","아세설팜칼륨"], price:10800, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TM4TZSPC00.png"},
+ {id:166, name:"레몬셔벗에이드 제로", brand:"자연은", cat:"음료", e:"🥤", kcal:10, sugar:0, carb:11.6, sw:["에리스리톨","D-소비톨액","아세설팜칼륨","수크랄로스","스테비올 배당체"], price:14050, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TKEMTRPC00.png"},
+ {id:167, name:"제로당 현미 쑥 찹쌀떡", brand:"곰곰", cat:"간식/디저트", e:"🍫", kcal:211, sugar:0, carb:46, sw:["말티톨"], price:8100, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0M1TJXSK2AC00.png"},
+ {id:168, name:"퓨리타 자두녹차 제로", brand:"퓨럽2공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:11, sw:["에리스리톨","아세설팜칼륨","수크랄로스"], price:12150, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0M1THZT0E2C00.png"},
+ {id:169, name:"제로슈거 초코렛타", brand:"랩노쉬", cat:"간식/디저트", e:"🍫", kcal:350, sugar:0, carb:38, sw:["D-말티톨","효소처리스테비아"], price:5100, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0M1GBPG8XA400.png"},
+ {id:170, name:"제로슈가 참깨누룽지쿠키", brand:"도깨비베이킹", cat:"간식/디저트", e:"🍫", kcal:342, sugar:0, carb:68, sw:["D-말티톨","효소처리스테비아","수크랄로스"], price:7700, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0M1GB49S72400.png"},
+ {id:171, name:"제로 쑥 단백질 영양찰떡", brand:"별미힘떡", cat:"간식/디저트", e:"🍫", kcal:215, sugar:0, carb:39, sw:["에리스리톨","스테비아"], price:16500, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0M1G94KVZE400.png"},
+ {id:172, name:"납작복숭아 아이스티 홍차 제로", brand:"티로그", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스"], price:10500, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0M1G7DW9GE400.png"},
+ {id:173, name:"초록매실 스파클링 제로", brand:"웅진식품", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:6, sw:["에리스리톨"], price:9600, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0M1G285ZAT400.png"},
+ {id:174, name:"제로 아이스 쿠키&크림바", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:166, sugar:0, carb:16, sw:["D-말티톨","수크랄로스"], price:5100, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F9YB742400.png"},
+ {id:175, name:"설탕 없는 제로슈가 돼지불백", brand:"아임제로당", cat:"육가공품", e:"🍖", kcal:199, sugar:0, carb:6, sw:["이소말트"], price:8910, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F97ZY46400.png"},
+ {id:176, name:"제로슈가 매콤제육볶음", brand:"아임제로당", cat:"육가공품", e:"🍖", kcal:169, sugar:0, carb:9, sw:["이소말트"], price:9810, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F9138P2400.png"},
+ {id:177, name:"블렌딩티 유자자몽 제로", brand:"이디야", cat:"음료", e:"🥤", kcal:6, sugar:1, carb:6.6, sw:["에리스리톨","수크랄로스"], price:11400, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F7W2K5J400.png"},
+ {id:178, name:"킬로리 제로달콩두유 밀크티", brand:"농업회사법인삼광에프앤비", cat:"유제품", e:"🥛", kcal:74, sugar:0, carb:20, sw:["에리스리톨","효소처리스테비아"], price:27170, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F62R75Y400.png"},
+ {id:179, name:"킬로리 제로달콩두유 말차", brand:"농업회사법인삼광에프앤비", cat:"유제품", e:"🥛", kcal:77, sugar:0, carb:22, sw:["에리스리톨","효소처리스테비아"], price:11600, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F5MKY4J400.png"},
+ {id:180, name:"킬로리 제로달콩두유 플레인", brand:"농업회사법인삼광에프앤비", cat:"유제품", e:"🥛", kcal:74, sugar:0, carb:17, sw:["에리스리톨","효소처리스테비아"], price:9200, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F4QDJ9J400.png"},
+ {id:181, name:"킬로리 제로달콩두유 초코", brand:"농업회사법인삼광에프앤비", cat:"유제품", e:"🥛", kcal:87, sugar:1.7, carb:25, sw:["에리스리톨","효소처리스테비아"], price:13700, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F42VCBY400.png"},
+ {id:182, name:"빅 뽀로로 제로 밀크맛", brand:"팔도", cat:"음료", e:"🥤", kcal:11, sugar:0, carb:15, sw:["에리스리톨","아라비아검","효소처리스테비아","수크랄로스"], price:14430, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F38A9SY400.png"},
+ {id:183, name:"빅 뽀로로 제로 딸기맛", brand:"팔도", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:15, sw:["에리스리톨","아라비아검","효소처리스테비아","수크랄로스"], price:14700, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F2NAJDJ400.png"},
+ {id:184, name:"제로스콘 흑임자", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:234, sugar:1, carb:13, sw:["알룰로스"], price:6000, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F1BZH5T400.png"},
+ {id:185, name:"제로스콘 크럼블", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:279, sugar:2, carb:24, sw:["에리스리톨"], price:6700, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0M1F18FQ66400.png"},
+ {id:186, name:"티즐 아이스티 제로 딸기", brand:"동원시스템즈", cat:"음료", e:"🥤", kcal:6, sugar:0, carb:9, sw:["에리스리톨"], price:13200, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M1EZGHSAA400.png"},
+ {id:187, name:"힐링티 제로레몬에이드", brand:"에스엠바이오", cat:"음료", e:"🥤", kcal:15, sugar:0, carb:9, sw:["에리스리톨","수크랄로스"], price:16100, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0M1EY2TS56400.png"},
+ {id:188, name:"제로슈거 애플사이다비네거", brand:"탐사", cat:"음료", e:"🥤", kcal:55, sugar:0, carb:13, sw:["아세설팜칼륨","수크랄로스"], price:12300, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0M1EWB5S4J400.png"},
+ {id:189, name:"아이스쿨 제로 레드펀치", brand:"서주", cat:"간식/디저트", e:"🍫", kcal:3, sugar:0.35, carb:0.85, sw:["수크랄로스"], price:10600, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M1ETQ0NHP400.png"},
+ {id:190, name:"최겸의 제로모닝빵", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:148.7, sugar:0, carb:20, sw:[], price:7600, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0M1DHDZ0Y6400.png"},
+ {id:191, name:"요플레 제로 무당 플레인", brand:"빙그레", cat:"유제품", e:"🥛", kcal:60, sugar:0, carb:4, sw:["알룰로스"], price:14670, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M16T5E25A000.png"},
+ {id:192, name:"파워캡 블루아이스 제로", brand:"빙그레", cat:"간식/디저트", e:"🍫", kcal:100, sugar:0, carb:20, sw:["말티톨","아세설팜칼륨","수크랄로스"], price:5200, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0M16SG8CF2000.png"},
+ {id:193, name:"젤리블리 제로 피치플럼", brand:"젤리블리", cat:"간식/디저트", e:"🍫", kcal:6, sugar:0, carb:8.7, sw:["에리스리톨","수크랄로스","효소처리스테비아"], price:15750, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0M16SC5JEY000.png"},
+ {id:194, name:"매실음료 제로", brand:"노브랜드", cat:"음료", e:"🥤", kcal:12, sugar:1, carb:11, sw:["에리스리톨","아세설팜칼륨","수크랄로스"], price:11700, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0M16QDNGPA000.png"},
+ {id:195, name:"스키니피그 제로감귤바", brand:"서주", cat:"간식/디저트", e:"🍫", kcal:0, sugar:1, carb:33, sw:["알룰로스","에리스리톨","수크랄로스","효소처리스테비아"], price:12820, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M16NYB4GJ000.png"},
+ {id:196, name:"스키니피그 제로복숭아바", brand:"서주", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:33, sw:["알룰로스","에리스리톨","수크랄로스","효소처리스테비아"], price:10200, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0M16N9517Y000.png"},
+ {id:197, name:"브이톡 제로 레몬에이드", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:4.9, sw:["에리스리톨"], price:12000, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0M16MCQNJA000.png"},
+ {id:198, name:"제로 블루레몬향", brand:"탑씨", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["D-소비톨액","수크랄로스","아세설팜칼륨"], price:14880, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0M1651XN4K800.png"},
+ {id:199, name:"올데이프룻 제로 청매실", brand:"서울우유", cat:"음료", e:"🥤", kcal:8, sugar:0, carb:6, sw:["에리스리톨"], price:15000, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0M164BKH6V800.png"},
+ {id:200, name:"젤리블리 애플망고 제로", brand:"MDS", cat:"간식/디저트", e:"🍫", kcal:3, sugar:0, carb:9.7, sw:["에리스리톨","효소처리스테비아","수크랄로스"], price:13750, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0M160ZVAXQ800.png"},
+ {id:201, name:"무설탕 민트 캔디", brand:"페피", cat:"간식/디저트", e:"🍫", kcal:165, sugar:0, carb:69, sw:["D-소비톨액","아스파탐","아세설팜칼륨"], price:10900, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0M1604K9Y3800.png"},
+ {id:202, name:"제로 아이스티 샤인&라임", brand:"던킨도너츠", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["자일리톨","수크랄로스"], price:16200, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0M15YXP24Q800.png"},
+ {id:203, name:"제로톡젤리 애플망고맛", brand:"건영제과", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨","효소처리스테비아","에리스리톨"], price:6150, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M15TNXSP3G00.png"},
+ {id:204, name:"블렌딩티 망고피치 제로", brand:"이디야", cat:"음료", e:"🥤", kcal:5, sugar:1, carb:6.2, sw:["수크랄로스","에리스리톨"], price:14500, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0M15SXP2VFG00.png"},
+ {id:205, name:"젤리블리 제로슈거 애플샤인 젤리", brand:"엠디에스코리아4공장", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["효소처리스테비아","수크랄로스","에리스리톨"], price:6940, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0M15SFCGN7G00.png"},
+ {id:206, name:"제로 시트러스 유자 젤리", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:30, sugar:0, carb:10, sw:["아세설팜칼륨","수크랄로스"], price:6600, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M15MGJQFB000.png"},
+ {id:207, name:"제로스파클링 캐모마일피치", brand:"널담", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스"], price:9900, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0M0J1K76H6R00.png"},
+ {id:208, name:"제로스파클링 블랙티레몬", brand:"널담", cat:"기타", e:"🛒", kcal:0, sugar:0, carb:1, sw:["수크랄로스"], price:8600, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0M0J0Y2ZAYR00.png"},
+ {id:209, name:"제로슈거 보성녹차베이스", brand:"아크바", cat:"음료", e:"🥤", kcal:6.9, sugar:0.2, carb:1.4, sw:["수크랄로스"], price:17300, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HZRTZ7YR00.png"},
+ {id:210, name:"제로 스파클링", brand:"이온더핏", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.8, sw:["에리스리톨","수크랄로스","아라비아검","D-소비톨액","아세설팜칼륨"], price:11800, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HY15PNYR00.png"},
+ {id:211, name:"저당 오리엔탈 드레싱", brand:"청정원", cat:"조미료/소스", e:"🧂", kcal:15, sugar:1, carb:3, sw:["알룰로스","스테비올 배당체"], price:7700, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HVKSY6YR00.png"},
+ {id:212, name:"저당 오리엔탈 드레싱", brand:"비비드키친", cat:"조미료/소스", e:"🧂", kcal:180, sugar:3, carb:19, sw:["알룰로스","효소처리스테비아","수크랄로스"], price:7460, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HTXHZAAR00.png"},
+ {id:213, name:"LIGHT JOY 저칼로리 오리엔탈 드레싱", brand:"오뚜기", cat:"조미료/소스", e:"🧂", kcal:31, sugar:4.2, carb:5.4, sw:["스테비올 배당체"], price:6700, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HT7NZVER00.png"},
+ {id:214, name:"저칼로리 오리엔탈 드레싱", brand:"곰곰", cat:"조미료/소스", e:"🧂", kcal:38, sugar:4, carb:24.5, sw:["알룰로스"], price:8500, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HSXHP0ER00.png"},
+ {id:215, name:"저당 저칼로리 무지방 오리엔탈 드레싱", brand:"폰타나", cat:"조미료/소스", e:"🧂", kcal:32, sugar:3, carb:9, sw:["알룰로스"], price:6, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HMA4Q4PR00.png"},
+ {id:216, name:"제로 스윗 아메리카노", brand:"탐사", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨","스테비올 배당체"], price:14310, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HFCGMYER00.png"},
+ {id:217, name:"제로슈가 청포도캔디", brand:"simplus", cat:"간식/디저트", e:"🍫", kcal:240, sugar:0, carb:99, sw:["말티톨"], price:6300, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HDC1X1PR00.png"},
+ {id:218, name:"제로 초코 롤케이크", brand:" 케익모아", cat:"간식/디저트", e:"🍫", kcal:640, sugar:0.9, carb:75, sw:["에리스리톨","D-소비톨액","D-말티톨"], price:5000, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HBPX9FER00.png"},
+ {id:219, name:"제로 칼로리 알룰로스", brand:"백설", cat:"기타", e:"🛒", kcal:3.2, sugar:0.3, carb:69.1, sw:["알룰로스"], price:9900, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0M0HAPGDPER00.png"},
+ {id:220, name:"제로당 현미 쑥찹쌀떡", brand:"떡미당", cat:"즉석식품", e:"🍱", kcal:121, sugar:0, carb:26, sw:["D-말티톨"], price:6700, stock:26, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H7EC4JYR00.png"},
+ {id:221, name:"저당 떡볶이양념", brand:"비비드키친", cat:"조미료/소스", e:"🧂", kcal:55, sugar:2.3, carb:26, sw:["알룰로스","수크랄로스"], price:9300, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H6ETGGAR00.png"},
+ {id:222, name:"비타글루 제로 에이드", brand:" 코스팜", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.4, sw:["에리스리톨","수크랄로스"], price:20000, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H4277DPR00.png"},
+ {id:223, name:"토닉워터 얼그레이홍차 제로칼로리", brand:"하이트진로", cat:"음료", e:"🥤", kcal:22.8, sugar:5.4, carb:29, sw:["효소처리스테비아","알룰로스","수크랄로스","아세설팜칼륨","사카린"], price:7460, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H2NH30PR00.png"},
+ {id:224, name:"제로 에이드 레몬 맛", brand:"이디야", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:45, sw:["에리스리톨","수크랄로스"], price:13800, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H1GQJWER00.png"},
+ {id:225, name:"아이스팝 딸기", brand:"제로윗", cat:"간식/디저트", e:"🍫", kcal:35, sugar:0, carb:20, sw:["에리스리톨","알룰로스","효소처리스테비아","아세설팜칼륨","수크랄로스"], price:5700, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0M0H08YW6JR00.png"},
+ {id:226, name:"당제로 통곡물 시리얼", brand:"씨알로", cat:"주식/면류", e:"🍜", kcal:150, sugar:0, carb:25, sw:["알룰로스","효소처리스테비아"], price:11100, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0M0GYGKKBYR00.png"},
+ {id:227, name:"제로 레몬라임 아이스티", brand:"복음자리", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:21, sw:["에리스리톨","알룰로스","수크랄로스","아세설팜칼륨"], price:12100, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0M0GXXC94AR00.png"},
+ {id:228, name:"제로톡젤리복숭아맛", brand:"건영제과", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:6280, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0M0GWRZFDTR00.png"},
+ {id:229, name:"스파클링제로슈가 피치", brand:"OKF", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아스파탐","아세설팜칼륨"], price:8200, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0M0G6AQDVJR00.png"},
+ {id:230, name:"요거트 파우더 제로", brand:"오붐", cat:"유제품", e:"🥛", kcal:12, sugar:0, carb:96, sw:["에리스리톨"], price:15200, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0M0G4KAQ9JR00.png"},
+ {id:231, name:"더말린 제로 애플망고", brand:"자연은", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:9.7, sw:["에리스리톨","수크랄로스","아세설팜칼륨"], price:12900, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0M0G2PMDH2R00.png"},
+ {id:232, name:"제로 슈가 아이스티 복숭아", brand:"립톤", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:5, sw:["에리스리톨","아스파탐","아세설팜칼륨"], price:10400, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0M07WAG8ZA400.png"},
+ {id:233, name:"제로 스윗 복숭아 아이스티", brand:"탐사", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["에리스리톨"], price:9100, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0M07H3DRZA400.png"},
+ {id:234, name:"아이스티 제로 복숭아", brand:"동원보성홍차", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스"], price:19100, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0M07FQ7GRP400.png"},
+ {id:235, name:"감미루트 제로 식혜", brand:"엔에이치씨바이오텍", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2, sw:["알룰로스"], price:19900, stock:7, img:"https://s3.zerofinder.co.kr/public/products/original/0M07D1WENE400.png"},
+ {id:236, name:"픽스타치오 제로바", brand:"삼우냉동", cat:"간식/디저트", e:"🍫", kcal:95, sugar:0, carb:17, sw:["수크랄로스","에리스리톨","알룰로스"], price:10400, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0M07369C1Z400.png"},
+ {id:237, name:"유자 아이스티 제로", brand:"맥널티커피", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:12.5, sw:["에리스리톨"], price:16600, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0M072DPF8Z400.png"},
+ {id:238, name:"곤약젤리 오렌지 제로", brand:"자임", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:9, sw:["에리스리톨"], price:5300, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0M06XTT923400.png"},
+ {id:239, name:"곤약젤리 사과 제로", brand:"자임", cat:"간식/디저트", e:"🍫", kcal:9, sugar:0, carb:14, sw:["에리스리톨"], price:8200, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0M06VWP12EC00.png"},
+ {id:240, name:"제로슈가 오트밀쿠키", brand:"엔에프에스 갈매지점", cat:"간식/디저트", e:"🍫", kcal:455, sugar:0, carb:68, sw:[], price:7300, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0KYXH1N0XGM00.png"},
+ {id:241, name:"호랑이생강청 제로", brand:"자연농장", cat:"음료", e:"🥤", kcal:34, sugar:7.12, carb:8.24, sw:["알룰로스"], price:17300, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDNSNQ2G400.png"},
+ {id:242, name:"과수원 청포도 제로슈가", brand:"남양", cat:"음료", e:"🥤", kcal:12, sugar:0.7, carb:6.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:18700, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDN98C48400.png"},
+ {id:243, name:"과수원 오렌지 제로슈가", brand:"남양", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:3, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:18100, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDMRHCN8400.png"},
+ {id:244, name:"탑씨 제로 복숭아향", brand:"일화", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:8900, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDM4X9DR400.png"},
+ {id:245, name:"스파클링제로버블 알로에맛", brand:"블링부스터x위글위글", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:19400, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDHGX95G400.png"},
+ {id:246, name:"스파클링제로버블 레몬맛", brand:"블링부스터x위글위글", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:19400, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0KYDH12N2W400.png"},
+ {id:247, name:"스파클링제로버블 애플망고맛", brand:"블링부스터x위글위글", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.56, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:16400, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KYD4KMT6M400.png"},
+ {id:248, name:"스파클링제로버블 수박맛", brand:"블링부스터x위글위글", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:18100, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KYD47EP9M400.png"},
+ {id:249, name:"미에로화이바 제로슈가", brand:"현대약품", cat:"음료", e:"🥤", kcal:11, sugar:0, carb:3.89, sw:["수크랄로스","아세설팜칼륨","스테비올 배당체"], price:10500, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KYD3JXACG400.png"},
+ {id:250, name:"애사비 제로 스파클링", brand:"썬키스트", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.71, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:9900, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0KYD31VYX0400.png"},
+ {id:251, name:"제로 오렌지 소다", brand:"썬키스트", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.25, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검","감초추출물"], price:9100, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KYD25HPMC400.png"},
+ {id:252, name:"제로 자두자몽 소다", brand:"썬키스트", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.5, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스","아라비아검"], price:11200, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KYCYYC0P8400.png"},
+ {id:253, name:"제로 자몽 소다", brand:"썬키스트", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:2.54, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:19300, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0KYCXYPEB4400.png"},
+ {id:254, name:"스파클링제로자두", brand:"오케이에프", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.68, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:12200, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6YMV5D7W00.png"},
+ {id:255, name:"코코제로 리치", brand:"슈가로로", cat:"음료", e:"🥤", kcal:2, sugar:0.29, carb:4.12, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액","아라비아검"], price:18800, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6XSQA4KW00.png"},
+ {id:256, name:"코코제로 망고", brand:"슈가로로", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.82, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액","아라비아검"], price:8900, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6X4GTVBW00.png"},
+ {id:257, name:"코코제로 복숭아", brand:"슈가로로", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.82, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액","아라비아검"], price:13300, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6WM5KQBW00.png"},
+ {id:258, name:"코코제로 요구르트", brand:"슈가로로", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:3.53, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액","아라비아검"], price:18700, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6W0JEJQW00.png"},
+ {id:259, name:"코코제로 포도", brand:"슈가로로", cat:"음료", e:"🥤", kcal:4, sugar:0.29, carb:4.41, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:26400, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6VJPQ0ZW00.png"},
+ {id:260, name:"메론소다 제로", brand:"슈가로로", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:2.8, sw:["수크랄로스","아세설팜칼륨","에리스리톨","스테비올 배당체"], price:12700, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6VBR52BW00.png"},
+ {id:261, name:"구름소다 제로", brand:"슈가로로", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0.4, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:13300, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6TVRJC7W00.png"},
+ {id:262, name:"쥬시쿨 제로 파인애플", brand:"빙그레", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:2, sw:["아스파탐"], price:14900, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6TAWT1KW00.png"},
+ {id:263, name:"생귤탱귤 제로 감귤", brand:"빙그레", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:15.72, sw:["수크랄로스","에리스리톨","알룰로스"], price:5400, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6RJVFHZW00.png"},
+ {id:264, name:"더위사냥 제로 디카페인커피", brand:"빙그레", cat:"간식/디저트", e:"🍫", kcal:54, sugar:0, carb:18.57, sw:["수크랄로스","아세설팜칼륨","에리스리톨","말티톨"], price:5800, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6R4DFB3W00.png"},
+ {id:265, name:"당이 제로당 천도복숭아&자두", brand:"매일유업 광주공장", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:2.4, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:9100, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6QRT21BW00.png"},
+ {id:266, name:"당이 제로당 유산균음료", brand:"매일유업 광주공장", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:5.6, sw:["수크랄로스","에리스리톨"], price:13700, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6GW00S7W00.png"},
+ {id:267, name:"당이 제로당 청포도", brand:"매일유업", cat:"음료", e:"🥤", kcal:6, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:17800, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6GEFKN7W00.png"},
+ {id:268, name:"미닛메이드 레몬에이드 제로", brand:"해태에이치티비", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.34, sw:["수크랄로스","아세설팜칼륨","아라비아검"], price:15700, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6F14407W00.png"},
+ {id:269, name:"폴라포 스포츠 제로", brand:"해태아이스크림", cat:"간식/디저트", e:"🍫", kcal:2, sugar:0, carb:9.17, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스"], price:5400, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6EF804FW00.png"},
+ {id:270, name:"클룹 애사비소다 매실 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:0.55, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:10900, stock:7, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6C49W9KW00.png"},
+ {id:271, name:"클룹 애사비소다 화이트발사믹 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:3, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:16900, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6BSEJSBW00.png"},
+ {id:272, name:"클룹 애사비소다 타트체리 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:3.6, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:14700, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6AR6SH7W00.png"},
+ {id:273, name:"클룹 스프린트 에너지 오렌지임팩트 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨"], price:14900, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0KY6A0KHXFW00.png"},
+ {id:274, name:"클룹 스프린트 에너지 시트러스버스트 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨"], price:19600, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KY69M9YYFW00.png"},
+ {id:275, name:"클룹 유자레몬사이다 제로", brand:"클룹", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:0.57, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:16400, stock:28, img:"https://s3.zerofinder.co.kr/public/products/original/0KY68M4QRBW00.png"},
+ {id:276, name:"클룹 제로소다 소다맛", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:13700, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KY68775MKW00.png"},
+ {id:277, name:"클룹 푸룬 화이바 제로", brand:"동원시스템즈 횡성공장", cat:"음료", e:"🥤", kcal:61, sugar:0, carb:23.34, sw:["수크랄로스","아세설팜칼륨","D-소비톨액"], price:19300, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0KY65JANGVW00.png"},
+ {id:278, name:"클룹 제로소다 청사과", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:12300, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0KY64YFEY7W00.png"},
+ {id:279, name:"클룹 제로소다 포도", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:10100, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KY64BB1QBW00.png"},
+ {id:280, name:"티즐 제로 피치우롱티", brand:"웅진", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.34, sw:["수크랄로스","아세설팜칼륨","에리스리톨","스테비올 배당체"], price:14500, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6GFSWV0800.png"},
+ {id:281, name:"티즐 제로 딸기루이보스", brand:"웅진", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.76, sw:["수크랄로스","아세설팜칼륨","에리스리톨","스테비올 배당체"], price:13400, stock:30, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6GC5FMG800.png"},
+ {id:282, name:"티즐 제로 유자그린티", brand:"웅진", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.32, sw:["수크랄로스","아세설팜칼륨","에리스리톨","스테비올 배당체"], price:16700, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6FAY96C800.png"},
+ {id:283, name:"코코뿌요 제로 애플망고", brand:"뿌요", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:2.76, sw:["수크랄로스","에리스리톨","D-소비톨액","아라비아검","스테비올 배당체"], price:10100, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6ETZ1ZM800.png"},
+ {id:284, name:"코코뿌요 제로 복숭아", brand:"뿌요", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:3.38, sw:["수크랄로스","에리스리톨","D-소비톨액","아라비아검","스테비올 배당체"], price:16400, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6DY013R800.png"},
+ {id:285, name:"콤부차 제로 라임맛", brand:"야쿠르트", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.68, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:16500, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6D6M10W800.png"},
+ {id:286, name:"콤부차 제로 야쿠르트맛", brand:"야쿠르트", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.81, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:15800, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6CK7P2M800.png"},
+ {id:287, name:"제로까베르네소비뇽", brand:"하이드로오아시스", cat:"음료", e:"🥤", kcal:42, sugar:9.35, carb:10.2, sw:["자일리톨"], price:13400, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6BV47E8800.png"},
+ {id:288, name:"제로슈가오렌지캔디", brand:"홈플러스", cat:"간식/디저트", e:"🍫", kcal:240, sugar:0, carb:99, sw:["말티톨"], price:4700, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6B59ZH4800.png"},
+ {id:289, name:"제로 문경 오미자 아이스티", brand:"스위트컵", cat:"음료", e:"🥤", kcal:3.4, sugar:0, carb:10, sw:["수크랄로스","에리스리톨","효소처리스테비아"], price:11100, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KX6A8ZFSW800.png"},
+ {id:290, name:"피치 얼그레이 제로", brand:"할리스", cat:"음료", e:"🥤", kcal:1, sugar:0.01, carb:1.28, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:15400, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0KX69EERKR800.png"},
+ {id:291, name:"제로 말차 크림 모나카", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:145, sugar:0, carb:29, sw:["수크랄로스","말티톨","알룰로스","D-말티톨"], price:6700, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSFA9NZ4800.png"},
+ {id:292, name:"게토레이제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:13800, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSF2GJ5M800.png"},
+ {id:293, name:"펩시제로슈거모히토향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0.01, carb:0.08, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:14600, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSEPF600800.png"},
+ {id:294, name:"펩시제로슈거라임향제로카페인", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:19100, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSEDCJQM800.png"},
+ {id:295, name:"펩시제로슈거파인애플향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:17200, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSDXEVWM800.png"},
+ {id:296, name:"칠성사이다제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:6, sw:["수크랄로스","에리스리톨","알룰로스","스테비올 배당체"], price:17040, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSD9H8ZW800.png"},
+ {id:297, name:"탐스제로멜론향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:1, sugar:0.03, carb:2.33, sw:["에리스리톨","알룰로스"], price:11900, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSD01NXR800.png"},
+ {id:298, name:"나랑드사이다 제로 파인애플", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0.02, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:16000, stock:26, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSCGTWC0800.png"},
+ {id:299, name:"나랑드사이다 제로 그린애플", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.41, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:9700, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSC2J3XM800.png"},
+ {id:300, name:"웰치 제로 체리스트로베리맛", brand:"대구경북능금농협음료가공공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.25, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:11400, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KWSBKRDYW800.png"},
+ {id:301, name:"웰치 제로 샤인머스캣맛", brand:"농심", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.17, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:11300, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS91RCN8800.png"},
+ {id:302, name:"웰치 제로 오렌지맛", brand:"농심", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.25, sw:["수크랄로스","아세설팜칼륨","알룰로스","아라비아검"], price:10400, stock:7, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS8J0R7R800.png"},
+ {id:303, name:"칠성사이다제로블루라임", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:6, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:11500, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS7WS8B8800.png"},
+ {id:304, name:"제로 아이스 쿠키&크림", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:117, sugar:0, carb:21, sw:["말티톨","D-말티톨"], price:8600, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS7KRC88800.png"},
+ {id:305, name:"제로 아이스 딥초콜릿", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:130, sugar:0, carb:20, sw:["말티톨","D-말티톨"], price:5200, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS774ZEM800.png"},
+ {id:306, name:"제로 초콜릿칩 쿠키", brand:"롯데제과", cat:"간식/디저트", e:"🍫", kcal:470, sugar:0, carb:60, sw:["수크랄로스","아세설팜칼륨","에리스리톨","소르비톨","D-말티톨"], price:10300, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS6MVAZC800.png"},
+ {id:307, name:"마운틴듀제로슈거블루", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0.01, sw:["아스파탐","수크랄로스","아라비아검"], price:10900, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KWS692QE8800.png"},
+ {id:308, name:"당제로 초콜릿바", brand:"제로윗", cat:"간식/디저트", e:"🍫", kcal:155, sugar:0, carb:24, sw:["에리스리톨","알룰로스"], price:7100, stock:30, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNJ9532C800.png"},
+ {id:309, name:"제로루틴 알파CD 3200", brand:"코스팜", cat:"기타", e:"🛒", kcal:13, sugar:0, carb:3, sw:[], price:8400, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNHFQPWC800.png"},
+ {id:310, name:"당제로 초콜릿", brand:"제로윗", cat:"간식/디저트", e:"🍫", kcal:155, sugar:0, carb:24, sw:["에리스리톨","알룰로스","D-말티톨"], price:9000, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNHETADC800.png"},
+ {id:311, name:"컨디션 제로 스파클링", brand:"튤립인터내셔널", cat:"음료", e:"🥤", kcal:10, sugar:0, carb:2, sw:["수크랄로스"], price:18600, stock:11, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNGMJB0R800.png"},
+ {id:312, name:"제로윗 아이스팝 배", brand:"서주", cat:"간식/디저트", e:"🍫", kcal:37, sugar:0, carb:19.17, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스"], price:9600, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNG23BHR800.png"},
+ {id:313, name:"위생천 스파클링 제로", brand:"광동제약", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:10700, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNFYH9C4800.png"},
+ {id:314, name:"떠먹는 제로 티라미수", brand:"던킨", cat:"간식/디저트", e:"🍫", kcal:235, sugar:0, carb:34.84, sw:[], price:8000, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNF6QTVC800.png"},
+ {id:315, name:"곤약젤리 청포도 제로", brand:"자임에프앤비", cat:"간식/디저트", e:"🍫", kcal:2, sugar:0, carb:7.9, sw:["에리스리톨"], price:8200, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNENGQYG800.png"},
+ {id:316, name:"제로재 무설탕 생강청", brand:"자연농장", cat:"음료", e:"🥤", kcal:34, sugar:1, carb:7, sw:["알룰로스"], price:10100, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNE94ZZC800.png"},
+ {id:317, name:"최겸의 제로또띠아", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:324, sugar:1.64, carb:43.64, sw:[], price:9800, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNCPNDWW800.png"},
+ {id:318, name:"제로 연양갱 꿀고구마", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:95, sugar:0, carb:34, sw:["수크랄로스","아세설팜칼륨","D-말티톨"], price:8000, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNC8HCAM800.png"},
+ {id:319, name:"제로 에이드 청포도", brand:"동원시스템즈", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:4.4, sw:["에리스리톨"], price:15600, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNB3YNA0800.png"},
+ {id:320, name:"왕포도알 제로슈가", brand:"서주", cat:"간식/디저트", e:"🍫", kcal:40, sugar:0, carb:20, sw:["수크랄로스","아세설팜칼륨","에리스리톨","말티톨","효소처리스테비아"], price:10300, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0KWNAAYKNM800.png"},
+ {id:321, name:"흑삼진액제로", brand:"휴럼", cat:"건강기능식품", e:"💊", kcal:0, sugar:0, carb:0.83, sw:[], price:13200, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN9WKJV8800.png"},
+ {id:322, name:"파리콜라제로", brand:"LA LIMONADERIE DE PARIS", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:13600, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN8ZWGSR800.png"},
+ {id:323, name:"제로오렌지탄산", brand:"OKF", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.6, sw:[], price:13800, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN8H2E08800.png"},
+ {id:324, name:"제로톡젤리믹스", brand:"건영제과", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:1, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:9400, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN7Z41MW800.png"},
+ {id:325, name:"드림카카오제로", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:153, sugar:2, carb:18, sw:["D-말티톨"], price:7500, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN7B97E8800.png"},
+ {id:326, name:"당제로 바닐라", brand:"제로윗", cat:"간식/디저트", e:"🍫", kcal:100, sugar:0, carb:18, sw:["에리스리톨","알룰로스"], price:6300, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN6AWW2W800.png"},
+ {id:327, name:"에버데이 제로 에너지", brand:"일화", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.22, sw:["수크랄로스","아세설팜칼륨","D-소비톨액","아라비아검"], price:11900, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN5VQ1K0800.png"},
+ {id:328, name:"에버데이 제로 비타민", brand:"일화", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.23, sw:[], price:14700, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN4R2WD4800.png"},
+ {id:329, name:"에버데이 제로 릴렉스", brand:"일화", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.06, sw:["수크랄로스","아세설팜칼륨"], price:11400, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN4EA6J0800.png"},
+ {id:330, name:"제로 티라미수", brand:"케익드라마", cat:"간식/디저트", e:"🍫", kcal:270, sugar:0, carb:35, sw:[], price:5200, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN3NDEHC800.png"},
+ {id:331, name:"제로베이스 자몽", brand:"베버시티", cat:"음료", e:"🥤", kcal:5, sugar:1, carb:55, sw:["수크랄로스","알룰로스","D-소비톨액","효소처리스테비아","아라비아검"], price:11400, stock:26, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN3GAGSR800.png"},
+ {id:332, name:"제로베이스 레몬", brand:"베버시티", cat:"음료", e:"🥤", kcal:7, sugar:0, carb:55, sw:["수크랄로스","알룰로스","D-소비톨액","효소처리스테비아","아라비아검"], price:12400, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN34N9QG800.png"},
+ {id:333, name:"아이스티제로 자몽", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:10, sugar:0, carb:14, sw:["수크랄로스","에리스리톨"], price:9600, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0KWN0Z83D8800.png"},
+ {id:334, name:"곤약젤리 복숭아 제로", brand:"자임에프앤비", cat:"간식/디저트", e:"🍫", kcal:2, sugar:0, carb:7.5, sw:["수크랄로스","에리스리톨"], price:6200, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMZSF4R0800.png"},
+ {id:335, name:"메나브레아 제로", brand:"BIRRA MENABREA S.P.A.", cat:"음료", e:"🥤", kcal:15, sugar:0.5, carb:3.3, sw:[], price:10400, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMZG0B2G800.png"},
+ {id:336, name:"제로당현미쑥인절미", brand:"만풍농업회사", cat:"간식/디저트", e:"🍫", kcal:202, sugar:0.3, carb:43.16, sw:["말티톨"], price:5100, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMWNRC9R800.png"},
+ {id:337, name:"탐스제로사과", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:3, sugar:0.53, carb:2.46, sw:["수크랄로스","에리스리톨","알룰로스","스테비올 배당체"], price:12500, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMPT7NZGM00.png"},
+ {id:338, name:"립톤제로복숭아아이스티", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.51, sw:["아세설팜칼륨","수크랄로스"], price:14460, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMP1S4SRM00.png"},
+ {id:339, name:"칠성사이다제로오렌지", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:1, sugar:0.18, carb:1.89, sw:["수크랄로스","에리스리톨","알룰로스"], price:9400, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMNHM90CM00.png"},
+ {id:340, name:"탐스제로파인애플", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0.25, carb:2.42, sw:["수크랄로스","에리스리톨","알룰로스","D-소비톨액"], price:13500, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMMYGXC8M00.png"},
+ {id:341, name:"제로 플레인 요거트", brand:"롯데웰푸드", cat:"유제품", e:"🥛", kcal:60, sugar:0, carb:5, sw:["아세설팜칼륨"], price:15600, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMMHBBS4M00.png"},
+ {id:342, name:"피로제로", brand:"보고신약", cat:"음료", e:"🥤", kcal:80, sugar:16, carb:16, sw:["효소처리스테비아"], price:8900, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMKXWSJ0M00.png"},
+ {id:343, name:"요플레 제로 초코링", brand:"빙그레 광주공장", cat:"유제품", e:"🥛", kcal:105, sugar:0, carb:11, sw:["알룰로스","효소처리스테비아","D-말티톨"], price:15500, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMKPWK3MM00.png"},
+ {id:344, name:"코카·콜라 제로제로", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:8700, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMKJQC6CM00.png"},
+ {id:345, name:"펩시제로슈거라임향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:12100, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMKARY0CM00.png"},
+ {id:346, name:"HOT6 THE KING 제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:2.52, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:18500, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMK4E5YMM00.png"},
+ {id:347, name:"흑삼진액 제로", brand:"다정", cat:"건강기능식품", e:"💊", kcal:10, sugar:0.9, carb:1.4, sw:[], price:9900, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMJSRW88M00.png"},
+ {id:348, name:"7days 제로 곤약젤리, 복숭아맛", brand:"자임에프앤비", cat:"간식/디저트", e:"🍫", kcal:2, sugar:0, carb:7.6, sw:["에리스리톨"], price:9300, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMJRF2XRM00.png"},
+ {id:349, name:"클룹 제로소다 레몬", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:15600, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMJ771ZMM00.png"},
+ {id:350, name:"제로넛츠 아몬드", brand:"씨앤지", cat:"간식/디저트", e:"🍫", kcal:535, sugar:0, carb:45.16, sw:["D-말티톨"], price:7800, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMGNKSHCM00.png"},
+ {id:351, name:"저먼 제로 부어스트", brand:"외갓집", cat:"육가공품", e:"🍖", kcal:314, sugar:0.75, carb:6, sw:[], price:10200, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMGEFF3WM00.png"},
+ {id:352, name:"제로와플(코코넛)", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:252, sugar:2.08, carb:31.25, sw:["에리스리톨"], price:7100, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMFYWKEMM00.png"},
+ {id:353, name:"제로 카카오 케이크", brand:"롯데제과", cat:"간식/디저트", e:"🍫", kcal:455, sugar:0, carb:48, sw:["수크랄로스","아세설팜칼륨","D-말티톨"], price:9000, stock:30, img:"https://s3.zerofinder.co.kr/public/products/original/0KWMAB8BA5400.png"},
+ {id:354, name:"마스터토닉워터제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:[], price:17100, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM9RCRP9400.png"},
+ {id:355, name:"립톤제로복숭아 아이스티", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.51, sw:["수크랄로스","아세설팜칼륨"], price:14100, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM97TWF5400.png"},
+ {id:356, name:"클라우드 논알콜릭(구 클라우드 클리어 제로)", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:9, sugar:0, carb:2, sw:[], price:20000, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM8RJ1G1400.png"},
+ {id:357, name:"칠성사이다제로라임", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:1, sugar:0.03, carb:2.09, sw:["수크랄로스","에리스리톨","알룰로스"], price:9000, stock:30, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM7YJTMX400.png"},
+ {id:358, name:"제로 밀크 모나카", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:116, sugar:0, carb:22.14, sw:["수크랄로스","말티톨","D-말티톨"], price:8400, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM745FV6R00.png"},
+ {id:359, name:"Project H 제로마들렌 얼그레이", brand:"삼립", cat:"간식/디저트", e:"🍫", kcal:109, sugar:0, carb:15, sw:["말티톨","D-말티톨"], price:4900, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM4V4C3TR00.png"},
+ {id:360, name:"Project H 제로마들렌 말차", brand:"삼립", cat:"기타", e:"🛒", kcal:127, sugar:0, carb:15, sw:["말티톨","D-말티톨"], price:9900, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM3XJN0JR00.png"},
+ {id:361, name:"Project H 제로마들렌 오렌지&코코넛", brand:"삼립", cat:"간식/디저트", e:"🍫", kcal:125, sugar:0, carb:4, sw:["말티톨","D-말티톨"], price:7600, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM2D9SVC800.png"},
+ {id:362, name:"Project H 제로마들렌 초코", brand:"삼립", cat:"간식/디저트", e:"🍫", kcal:110, sugar:0, carb:14, sw:["말티톨","D-말티톨"], price:6300, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0KWM0HE6QER00.png"},
+ {id:363, name:"카페라떼 시럽 WITH 알룰로스", brand:"몽크슈", cat:"간식/디저트", e:"🍫", kcal:4, sugar:0, carb:13.02, sw:["알룰로스"], price:6000, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKYNK2X2R00.png"},
+ {id:364, name:"제로슈가 소불고기", brand:"푸드랩플러스", cat:"육가공품", e:"🍖", kcal:155, sugar:0, carb:8, sw:["에리스리톨","알룰로스"], price:9400, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKXPCP3TR00.png"},
+ {id:365, name:"맥심 모카골드 제로슈거 커피", brand:"동서식품", cat:"유제품", e:"🥛", kcal:30, sugar:0, carb:9, sw:["에리스리톨","폴리글리시톨액"], price:12000, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKWDHWVER00.png"},
+ {id:366, name:"티즐 제로 자몽블랙티", brand:"웅진", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.08, sw:[], price:13500, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKVC0G12R00.png"},
+ {id:367, name:"제로콘누들 마라", brand:"킬로리", cat:"주식/면류", e:"🍜", kcal:285, sugar:0, carb:71, sw:["에리스리톨","효소처리스테비아"], price:7000, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKTE6MQJR00.png"},
+ {id:368, name:"자연은 더 말린 제로 유자", brand:"웅진", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.96, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:17300, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKSM8Y2PR00.png"},
+ {id:369, name:"제로스위트", brand:"델라페", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨"], price:20200, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKR1DXTER00.png"},
+ {id:370, name:"제로 바나나파운드", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:304, sugar:5, carb:27.67, sw:[], price:6100, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKQC7QM2R00.png"},
+ {id:371, name:"비다 제로 스파클링 드링크 솔티 리치향", brand:"KIANJOOCANPACKSDN.BHD", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["에리스리톨","아세설팜칼륨","수크랄로스"], price:17700, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0KWKBQC68AR00.png"},
+ {id:372, name:"양반 유자 제로", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:3, sugar:0.59, carb:1.18, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:9100, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ79P28JR00.png"},
+ {id:373, name:"롯데시네마 제로팝콘", brand:"제이앤이 아산공장", cat:"간식/디저트", e:"🍫", kcal:456, sugar:0, carb:80.03, sw:["D-말티톨"], price:10700, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ6W5SWPR00.png"},
+ {id:374, name:"제로쌀스콘 카카오", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:433, sugar:1.67, carb:56.67, sw:[], price:10000, stock:44, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ65MD4YR00.png"},
+ {id:375, name:"제로브라우니샌드", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:395, sugar:2.5, carb:30, sw:["에리스리톨"], price:5700, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ5Q7ZW6R00.png"},
+ {id:376, name:"코카-콜라 제로 체리", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:14100, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ4AT59YR00.png"},
+ {id:377, name:"코카-콜라 제로 레몬", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:15200, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ2SK79ER00.png"},
+ {id:378, name:"부르르 밀크소다 제로 망고파인애플", brand:"일화", cat:"음료", e:"🥤", kcal:3, sugar:0.4, carb:1.36, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:14000, stock:21, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ2D08AAR00.png"},
+ {id:379, name:"부르르 제로사이다 자두", brand:"일화초정공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:17500, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ1NABP6R00.png"},
+ {id:380, name:"부르르 제로콜라 수박", brand:"일화초정공장", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.14, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:15700, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KWJ16MK8ER00.png"},
+ {id:381, name:"부르르 제로콜라 체리", brand:"일화초정공장", cat:"음료", e:"🥤", kcal:50, sugar:13, carb:13, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:17000, stock:54, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHZDPFT2R00.png"},
+ {id:382, name:"제로 쿠키 티라미수콘", brand:"롯데웰푸드  천안공장", cat:"간식/디저트", e:"🍫", kcal:123, sugar:0, carb:20.63, sw:["수크랄로스","말티톨","D-말티톨"], price:9900, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHYNJQTJR00.png"},
+ {id:383, name:"부르르 제로콜라 레몬", brand:"일화초정공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0.11, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:9900, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHY7MD9YR00.png"},
+ {id:384, name:"양반 매실 제로", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:3, sugar:0.59, carb:1.18, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:19400, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHWJY3PTR00.png"},
+ {id:385, name:"자연은 알로에 제로", brand:"웅진식품", cat:"음료", e:"🥤", kcal:1, sugar:0.4, carb:1.84, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:16500, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHT7ZCEJR00.png"},
+ {id:386, name:"제로 브라우니", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:365, sugar:1.82, carb:34.55, sw:["에리스리톨"], price:7200, stock:50, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHSJYBJER00.png"},
+ {id:387, name:"피크닉 청포도 제로", brand:"매일유업", cat:"음료", e:"🥤", kcal:3, sugar:0.5, carb:3.5, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:11000, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHQN68PPR00.png"},
+ {id:388, name:"피크닉 사과 제로", brand:"매일유업", cat:"음료", e:"🥤", kcal:3, sugar:0.5, carb:3.5, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:16700, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHQ0YP3ER00.png"},
+ {id:389, name:"제로마일드초콜릿", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:510, sugar:0, carb:50, sw:["D-말티톨"], price:6200, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHPMVEV6R00.png"},
+ {id:390, name:"참치듬뿍 제로쌈장", brand:"농업회사법인이삭뜰", cat:"조미료/소스", e:"🧂", kcal:187, sugar:2.43, carb:25.87, sw:["알룰로스"], price:9300, stock:59, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHNR5CRTR00.png"},
+ {id:391, name:"코카콜라 제로 한류", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:16600, stock:56, img:"https://s3.zerofinder.co.kr/public/products/original/0KWHN8JWXJR00.png"},
+ {id:392, name:"아샷추 복숭아제로", brand:"오늘좋은", cat:"음료", e:"🥤", kcal:5, sugar:0, carb:0.94, sw:["수크랄로스","아세설팜칼륨"], price:10100, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KWBDS54CT000.png"},
+ {id:393, name:"제로 에이드 수박", brand:"이디야", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:4.4, sw:["수크랄로스","에리스리톨"], price:17700, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0KWBATFJEA000.png"},
+ {id:394, name:"에버데이 제로", brand:"일화", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.25, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:14800, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KWBA3BSA2000.png"},
+ {id:395, name:"하이볼향시럽제로 핑크자몽", brand:"오늘의일상", cat:"간식/디저트", e:"🍫", kcal:10, sugar:0, carb:2.33, sw:["에리스리톨","알룰로스","효소처리스테비아"], price:7000, stock:37, img:"https://s3.zerofinder.co.kr/public/products/original/0KWB8T6YVE000.png"},
+ {id:396, name:"제로스콘 단호박", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:393, sugar:1.67, carb:21.67, sw:["알룰로스"], price:8800, stock:5, img:"https://s3.zerofinder.co.kr/public/products/original/0KWB7GBC8E000.png"},
+ {id:397, name:"쿨피스 제로 파인애플", brand:"동원", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:1.3, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:18500, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAY7PCKA000.png"},
+ {id:398, name:"제로 에이드 레몬", brand:"동원", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1, sw:["수크랄로스","알룰로스","D-소비톨액","아라비아검"], price:14300, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAXQT87J000.png"},
+ {id:399, name:"알로에베라킹 제로", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.8, sw:["수크랄로스"], price:19800, stock:45, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAX1M7FY000.png"},
+ {id:400, name:"슈가로로 미니 코코제로 요구르트", brand:"희창", cat:"음료", e:"🥤", kcal:15, sugar:0, carb:3.7, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액","아라비아검"], price:19000, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAWVWGRT000.png"},
+ {id:401, name:"실론티복숭아제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.24, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:16900, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAW0GR7J000.png"},
+ {id:402, name:"포도봉봉 제로", brand:"해태", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.21, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:10700, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAVQGDZP000.png"},
+ {id:403, name:"가나디 레몬녹차제로", brand:"삼양패키징 광혜원", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.02, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:19800, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAVBQ662000.png"},
+ {id:404, name:"청귤 그린티 제로", brand:"할리스", cat:"음료", e:"🥤", kcal:0, sugar:11.8, carb:0, sw:["수크랄로스","D-소비톨액","아라비아검"], price:15800, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KWATBGD5E000.png"},
+ {id:405, name:"제로 쿠앤크 샌드", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:464, sugar:0, carb:67.71, sw:["수크랄로스","아세설팜칼륨","D-말티톨"], price:9600, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAS2DK8E000.png"},
+ {id:406, name:"제로톡젤리딸기맛", brand:"건영제과", cat:"간식/디저트", e:"🍫", kcal:10, sugar:0, carb:2.5, sw:["수크랄로스","아세설팜칼륨","효소처리스테비아"], price:7400, stock:51, img:"https://s3.zerofinder.co.kr/public/products/original/0KWARCY7D2000.png"},
+ {id:407, name:"제로후르츠젤리", brand:"롯데", cat:"간식/디저트", e:"🍫", kcal:338, sugar:0.03, carb:77.3, sw:["수크랄로스","아세설팜칼륨","말티톨"], price:8400, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAQWEF22000.png"},
+ {id:408, name:"야쿠르트 1971 제로", brand:"한국야쿠르트", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:5.26, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:18500, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAQBABS2000.png"},
+ {id:409, name:"발왕산막걸리제로", brand:"일화", cat:"음료", e:"🥤", kcal:37, sugar:8.57, carb:9.14, sw:[], price:19500, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAQ0PACE000.png"},
+ {id:410, name:"유자몽 블랙티 제로", brand:"할리스", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:1.29, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:18900, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAP27TKY000.png"},
+ {id:411, name:"제로설탕 카페시럽", brand:"희창", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:21, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:17400, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAMSYDSJ000.png"},
+ {id:412, name:"오렌지향 제로탄산", brand:"썬키스트", cat:"음료", e:"🥤", kcal:7, sugar:0, carb:3.6, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:15700, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAKXC6C2000.png"},
+ {id:413, name:"제로젤리 사워베어", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:124, sugar:0, carb:80.95, sw:["에리스리톨","알룰로스","효소처리스테비아"], price:6800, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0KWAJ4ADBP000.png"},
+ {id:414, name:"쿨피스 제로 복숭아", brand:"동원", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.87, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:18500, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0KW6CFYM5AG00.png"},
+ {id:415, name:"삼육두유 제로슈거", brand:"삼육식품", cat:"유제품", e:"🥛", kcal:42, sugar:0.47, carb:2.63, sw:["알룰로스","효소처리스테비아","아라비아검"], price:14500, stock:27, img:"https://s3.zerofinder.co.kr/public/products/original/0KW6C1WBFEG00.png"},
+ {id:416, name:"탐스제로레몬향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:2.5, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스","D-소비톨액","아라비아검"], price:17900, stock:26, img:"https://s3.zerofinder.co.kr/public/products/original/0KW6B940JAG00.png"},
+ {id:417, name:"쿨피스 제로 자두", brand:"동원", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.87, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:11900, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0KW6AJX4MPG00.png"},
+ {id:418, name:"탐스제로사과키위향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:2, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액","아라비아검"], price:16800, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KW5X7SMDPG00.png"},
+ {id:419, name:"닥터 페퍼 제로", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:15100, stock:38, img:"https://s3.zerofinder.co.kr/public/products/original/0KW5W93VYTG00.png"},
+ {id:420, name:"아르기닌 제로 6000", brand:"네이처텍", cat:"음료", e:"🥤", kcal:225, sugar:0, carb:15, sw:["수크랄로스","효소처리스테비아"], price:19600, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0KW5W311B6G00.png"},
+ {id:421, name:"환타 제로 포도향", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:11400, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KW5V69B52G00.png"},
+ {id:422, name:"메가비타3000 제로", brand:"보고신약 논산공장", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:1, sw:["효소처리스테비아","아라비아검"], price:14300, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1EAY3F6G00.png"},
+ {id:423, name:"탐사제로사이다", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:11400, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1DWNKQYG00.png"},
+ {id:424, name:"제로청포도탄산", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.6, sw:["아스파탐","수크랄로스","아세설팜칼륨"], price:16100, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1DB2D12W00.png"},
+ {id:425, name:"제로슈가 알룰로스", brand:" 비에스바이오", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:18.4, sw:["알룰로스"], price:7500, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1BV30GTW00.png"},
+ {id:426, name:"제로블랙티 복숭아", brand:"퓨어플러스", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.2, sw:["수크랄로스","효소처리스테비아"], price:9700, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1B3PNPAW00.png"},
+ {id:427, name:"부르르제로콜라", brand:"일화", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:13300, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1AKES6YW00.png"},
+ {id:428, name:"제로앙버터스콘", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:461, sugar:2.35, carb:29.41, sw:["에리스리톨"], price:6600, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0KW1A904SAW00.png"},
+ {id:429, name:"양반 오미자 제로", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:3, sugar:0.77, carb:0.88, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:12900, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KW19GXZ0TW00.png"},
+ {id:430, name:"제로 카카오파운드", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:297, sugar:8.33, carb:23.33, sw:[], price:8000, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0KW18X2T1TW00.png"},
+ {id:431, name:"초정 토닉워터 제로", brand:"일화초정공장", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:0.4, sw:["수크랄로스","아세설팜칼륨"], price:20200, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KW18K2PWAW00.png"},
+ {id:432, name:"제로블랙티 레몬맛", brand:"퓨어플러스", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.2, sw:["수크랄로스","효소처리스테비아"], price:12500, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KW17JNEBYW00.png"},
+ {id:433, name:"제로젤리 제로베어", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:118, sugar:0, carb:78.95, sw:["알룰로스","효소처리스테비아"], price:7600, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KW167WQ3PW00.png"},
+ {id:434, name:"제로 슈거 말차", brand:"대상다이브스 이천공장", cat:"음료", e:"🥤", kcal:45, sugar:0, carb:96, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:11600, stock:12, img:"https://s3.zerofinder.co.kr/public/products/original/0KW14N34M6W00.png"},
+ {id:435, name:"포도 제로바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스","효소처리스테비아"], price:9200, stock:25, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0P9TSYYW00.png"},
+ {id:436, name:"제로칩 어니언", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:285, sugar:1, carb:36, sw:[], price:5400, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0N2PSFEW00.png"},
+ {id:437, name:"제로칩 솔티", brand:"마이노멀", cat:"간식/디저트", e:"🍫", kcal:285, sugar:0, carb:36, sw:[], price:10700, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0MMK1H6W00.png"},
+ {id:438, name:"자두 제로바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["알룰로스","에리스리톨","수크랄로스","아세설팜칼륨","효소처리스테비아"], price:5900, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0KF9Z06W00.png"},
+ {id:439, name:"오렌지 제로바", brand:"라라스윗", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:9, sw:["알룰로스","에리스리톨","수크랄로스","소르비톨","효소처리스테비아"], price:9400, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0JQCNFYW00.png"},
+ {id:440, name:"아몬드스윗 제로슈거", brand:"라라스윗", cat:"음료", e:"🥤", kcal:30, sugar:0, carb:7, sw:["에리스리톨","효소처리스테비아"], price:17100, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0J9Y8STW00.png"},
+ {id:441, name:"비락식혜 제로", brand:"팔도", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:4.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:14700, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KW0H52GMPW00.png"},
+ {id:442, name:"제로 초코파이", brand:"롯데웰푸드", cat:"간식/디저트", e:"🍫", kcal:393, sugar:0, carb:60.71, sw:["수크랄로스","D-말티톨","아라비아검"], price:10900, stock:58, img:"https://s3.zerofinder.co.kr/public/products/original/0KW07H79HV800.png"},
+ {id:443, name:"제로베이스 청포도", brand:"베버시티", cat:"음료", e:"🥤", kcal:9, sugar:2, carb:55, sw:["수크랄로스","알룰로스"], price:10900, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KW076V58Q800.png"},
+ {id:444, name:"제로 브라우니샌드", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:395, sugar:2.5, carb:30, sw:["에리스리톨"], price:7000, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KW06E0D5B800.png"},
+ {id:445, name:"진로 토닉워터 제로", brand:"건강한사람들  2사업장", cat:"음료", e:"🥤", kcal:3.47, sugar:0.87, carb:3.23, sw:["수크랄로스","아세설팜칼륨","알룰로스","효소처리스테비아","사카린나트륨"], price:8800, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KW064RVEK800.png"},
+ {id:446, name:"갈배사이다 제로", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:10100, stock:7, img:"https://s3.zerofinder.co.kr/public/products/original/0KW04ZV9JK800.png"},
+ {id:447, name:"일하기 시럽 제로슈가 카페시럽", brand:"그린에프엠", cat:"간식/디저트", e:"🍫", kcal:150, sugar:0, carb:61, sw:["수크랄로스","말티톨","알룰로스"], price:10800, stock:40, img:"https://s3.zerofinder.co.kr/public/products/original/0KW03XARKF800.png"},
+ {id:448, name:"제로딸기탄산", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.6, sw:["아스파탐","수크랄로스","아세설팜칼륨","에리스리톨"], price:12000, stock:13, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZZRNFKF800.png"},
+ {id:449, name:"환타 제로 오렌지", brand:" 동천수 상주공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:16000, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZN48W7Z800.png"},
+ {id:450, name:"탱크보이 배 제로", brand:"해태아이스크림", cat:"간식/디저트", e:"🍫", kcal:0, sugar:0, carb:11.67, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스"], price:7800, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZKZBHVQ800.png"},
+ {id:451, name:"탐스제로오렌지향", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:2.5, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스"], price:8800, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZK95H33800.png"},
+ {id:452, name:"코카·콜라제로", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:[], price:14100, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZK0F1CQ800.png"},
+ {id:453, name:"아침햇살 제로슈가", brand:"웅진", cat:"음료", e:"🥤", kcal:27, sugar:0.36, carb:6.12, sw:["에리스리톨","수크랄로스"], price:12600, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZJ19PBZ800.png"},
+ {id:454, name:"쥬시쿨 제로 자두", brand:"빙그레", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:2, sw:["수크랄로스","에리스리톨","효소처리스테비아"], price:11600, stock:60, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZG9Z8TZ800.png"},
+ {id:455, name:"하이트제로0.00", brand:"하이트진로", cat:"음료", e:"🥤", kcal:17, sugar:2.25, carb:3.94, sw:[], price:14200, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZFNT9PZ800.png"},
+ {id:456, name:"실론티레몬제로", brand:"롯데", cat:"음료", e:"🥤", kcal:2, sugar:0.02, carb:1.67, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:21490, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZDF0P97800.png"},
+ {id:457, name:"핫식스제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:2, sugar:0.04, carb:5.71, sw:["수크랄로스","아세설팜칼륨","에리스리톨","알룰로스"], price:13300, stock:9, img:"https://s3.zerofinder.co.kr/public/products/original/0KVZCNJ103800.png"},
+ {id:458, name:"솔의눈제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:3, sugar:0.05, carb:1.41, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:15300, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0KVYK7MPK7800.png"},
+ {id:459, name:"제로스콘", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:400, sugar:1.82, carb:23.64, sw:["에리스리톨"], price:5000, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0KVYJNNAQ3800.png"},
+ {id:460, name:"카스 올 제로", brand:"오비맥주광주공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["효소처리스테비아"], price:18100, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KVYHSB97Z800.png"},
+ {id:461, name:"HOT6 더킹제로", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:2.49, sw:["수크랄로스","아세설팜칼륨","에리스리톨","D-소비톨액"], price:9600, stock:20, img:"https://s3.zerofinder.co.kr/public/products/original/0KVYGNDAPV800.png"},
+ {id:462, name:"제로떡볶이", brand:"아이케이푸드", cat:"간식/디저트", e:"🍫", kcal:142, sugar:1.09, carb:27.32, sw:["수크랄로스","알룰로스"], price:5400, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KVX8530B3800.png"},
+ {id:463, name:"제로클럽젤리", brand:"에스디푸드", cat:"간식/디저트", e:"🍫", kcal:321, sugar:55.74, carb:73.77, sw:[], price:7300, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0KVX73PZ23800.png"},
+ {id:464, name:"제로 스콘", brand:"제로베이커리", cat:"간식/디저트", e:"🍫", kcal:400, sugar:1.82, carb:23.64, sw:["에리스리톨"], price:9700, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KVVXW4D87800.png"},
+ {id:465, name:"샤인제로핏", brand:"부산경남우유협동조합", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3, sw:["수크랄로스","아세설팜칼륨","에리스리톨","효소처리스테비아"], price:17600, stock:29, img:"https://s3.zerofinder.co.kr/public/products/original/0KVVWCMTHV800.png"},
+ {id:466, name:"제로 연양갱", brand:"삼성식품", cat:"간식/디저트", e:"🍫", kcal:190, sugar:0, carb:66, sw:["수크랄로스","아세설팜칼륨","말티톨"], price:7500, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0KVV9J5QW3800.png"},
+ {id:467, name:"815콜라제로", brand:"일화", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:12100, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0KVV0DX5PB800.png"},
+ {id:468, name:"스폰서 제로", brand:"T.C.PHARMACEUTICALINDUSTRIESCO.,LTD", cat:"음료", e:"🥤", kcal:64, sugar:0, carb:16, sw:["수크랄로스","아세설팜칼륨"], price:20100, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KVTZQKP03800.png"},
+ {id:469, name:"자두녹차제로", brand:" 퓨럽2공장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.6, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:15200, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KVTZ62JPZ800.png"},
+ {id:470, name:"제로티라미수", brand:" 케익드라마", cat:"간식/디저트", e:"🍫", kcal:270, sugar:0, carb:35, sw:["에리스리톨","D-소비톨액","D-말티톨"], price:8500, stock:52, img:"https://s3.zerofinder.co.kr/public/products/original/0KVTYJP73B800.png"},
+ {id:471, name:"제로쫄면", brand:"아이케이푸드", cat:"주식/면류", e:"🍜", kcal:251, sugar:8.65, carb:42.58, sw:["수크랄로스","알룰로스"], price:7200, stock:53, img:"https://s3.zerofinder.co.kr/public/products/original/0KVTWYBCTV800.png"},
+ {id:472, name:"코카콜라제로", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["아스파탐","아세설팜칼륨"], price:11100, stock:18, img:"https://s3.zerofinder.co.kr/public/products/original/0KVTWDT2Q7800.png"},
+ {id:473, name:"마운틴듀제로슈거", brand:"롯데칠성음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0.01, sw:["아스파탐","아세설팜칼륨","아라비아검"], price:11700, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ7NMBB0R00.png"},
+ {id:474, name:"토레타! 제로", brand:"해태에이치티비", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.2, sw:["수크랄로스","아세설팜칼륨"], price:10500, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ79WZQWR00.png"},
+ {id:475, name:"진로토닉워터 제로", brand:"상일", cat:"음료", e:"🥤", kcal:10, sugar:2, carb:9.7, sw:["수크랄로스","아세설팜칼륨","알룰로스","효소처리스테비아","사카린나트륨"], price:15100, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ60FSQWR00.png"},
+ {id:476, name:"스프라이트 제로 Chill", brand:"오케이에프음료 ", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:8700, stock:33, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ5FHP4GR00.png"},
+ {id:477, name:"제로 복숭아 아이스티", brand:" 대상다이브스", cat:"간식/디저트", e:"🍫", kcal:3, sugar:0, carb:20.6, sw:["수크랄로스","에리스리톨"], price:9000, stock:35, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ50DBT0R00.png"},
+ {id:478, name:"제로 티베이스 납작복숭아", brand:"서울팩토리", cat:"음료", e:"🥤", kcal:7, sugar:0.49, carb:36.98, sw:["수크랄로스","아세설팜칼륨"], price:12000, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KVQ16WEP8R00.png"},
+ {id:479, name:"파워에이드 제로 라임향", brand:"해태에이치티비", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.3, sw:["수크랄로스","아세설팜칼륨"], price:12000, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPZ6S7WCR00.png"},
+ {id:480, name:"썬키스트 제로 복숭아레몬 소다", brand:"건강한사람들  2사업장", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.67, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액"], price:16800, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPXC04BWR00.png"},
+ {id:481, name:"환타 제로 파인애플향", brand:"코카콜라음료", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:9500, stock:19, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPWZ64SMR00.png"},
+ {id:482, name:"환타 제로 상큼 피치", brand:"대경사과원예농협음료가공공장", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:0.26, sw:["수크랄로스","아세설팜칼륨"], price:19400, stock:55, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPWR7F2RR00.png"},
+ {id:483, name:"클룹 제로소다 복숭아", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:1, sugar:0, carb:3.2, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:17800, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPVJDYAMR00.png"},
+ {id:484, name:"웰치 제로 그레이프맛", brand:"보해양조", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:2.25, sw:["알룰로스"], price:16300, stock:17, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPTGK4H4R00.png"},
+ {id:485, name:"초코헬스 제로넛츠", brand:"립사이팅", cat:"간식/디저트", e:"🍫", kcal:580, sugar:0, carb:48, sw:["스테비아","D-말티톨"], price:7400, stock:39, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPSK34SRR00.png"},
+ {id:486, name:"스프라이트 제로", brand:"튤립인터내셔널", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:11300, stock:14, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPS9H014R00.png"},
+ {id:487, name:"닥터케어 당코치 제로", brand:"종근당건강", cat:"건강기능식품", e:"💊", kcal:50, sugar:0, carb:5, sw:["수크랄로스","아세설팜칼륨"], price:14000, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPRRNZGCR00.png"},
+ {id:488, name:"후레쉬 알로에 제로슈가", brand:"웅진식품", cat:"음료", e:"🥤", kcal:2, sugar:0, carb:2.4, sw:["에리스리톨"], price:10300, stock:8, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPRHPZ58R00.png"},
+ {id:489, name:"제로블리 오렌지", brand:"엠디에스코리아4공장", cat:"간식/디저트", e:"🍫", kcal:8, sugar:0, carb:16.67, sw:["수크랄로스","에리스리톨","효소처리스테비아"], price:5700, stock:24, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPQQ858XM00.png"},
+ {id:490, name:"클룹 스프린트 에너지 애플블라스트 제로", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:15600, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KVPQFXJNSM00.png"},
+ {id:491, name:"피에르 제로 시그니처 에퍼베슨트 샤르도네", brand:"LESJARDINSDEL'ORBRIE", cat:"기타", e:"🛒", kcal:60, sugar:15, carb:15, sw:[], price:11100, stock:23, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP8GGJDCW00.png"},
+ {id:492, name:"바르닭 제로당 소스품은 닭가슴살 탄두리맛", brand:" 에스엘푸드", cat:"육가공품", e:"🍖", kcal:149, sugar:0.33, carb:5.37, sw:["효소처리스테비아"], price:10300, stock:34, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP32JJNF800.png"},
+ {id:493, name:"바르닭 제로당 소스품은 닭가슴살 바질맛", brand:"바르닭", cat:"육가공품", e:"🍖", kcal:148, sugar:0, carb:5.4, sw:["효소처리스테비아"], price:12400, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP2YQGSB800.png"},
+ {id:494, name:"꼬기다 닭가슴살 제로 화이트어니언맛", brand:"미가온푸드", cat:"육가공품", e:"🍖", kcal:140, sugar:0.37, carb:4.48, sw:["알룰로스"], price:10000, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP2W3YHQ800.png"},
+ {id:495, name:"꼬기다 닭가슴살 제로 하이라이스맛", brand:"미가온푸드", cat:"육가공품", e:"🍖", kcal:104, sugar:0.24, carb:3.77, sw:["에리스리톨"], price:10800, stock:36, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP2RBBVZ800.png"},
+ {id:496, name:"꼬기다 닭가슴살 제로 참숯바베큐맛", brand:"미가온푸드", cat:"육가공품", e:"🍖", kcal:117, sugar:0.23, carb:5.65, sw:["에리스리톨"], price:10300, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP2NEJHQ800.png"},
+ {id:497, name:"바르닭 제로당 소스품은 닭가슴살 닭갈비맛", brand:" 에스엘푸드", cat:"육가공품", e:"🍖", kcal:158, sugar:0, carb:7.17, sw:["효소처리스테비아"], price:6800, stock:32, img:"https://s3.zerofinder.co.kr/public/products/original/0KVP2D7WJZ800.png"},
+ {id:498, name:"르쎄떼 제로슈가 피치 블랙티 파우더", brand:"아름터", cat:"기타", e:"🛒", kcal:30, sugar:0, carb:97, sw:["수크랄로스","에리스리톨","효소처리스테비아"], price:12500, stock:43, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNYQY287800.png"},
+ {id:499, name:"디보션 식물성 제로 콜레스테롤 왕교자 찐새우맛", brand:"엄지식품", cat:"즉석식품", e:"🍱", kcal:140, sugar:1.19, carb:20.95, sw:[], price:8400, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNY9Y8EV800.png"},
+ {id:500, name:"설탕대신 알룰로스를 사용하여 만든 제로슈가 소불고기", brand:"푸드랩플러스", cat:"육가공품", e:"🍖", kcal:154, sugar:0.3, carb:11.1, sw:[], price:8500, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNY6JGRZ800.png"},
+ {id:501, name:"바르닭 제로당 소스품은 닭가슴살 블랙페퍼맛", brand:"에스엘푸드", cat:"육가공품", e:"🍖", kcal:160, sugar:0, carb:8.71, sw:["효소처리스테비아"], price:13700, stock:41, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNXMCA33800.png"},
+ {id:502, name:"제로슈가 안동식 찜닭", brand:"한강식품", cat:"육가공품", e:"🍖", kcal:219, sugar:0, carb:10.15, sw:[], price:11600, stock:6, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNX8YA2V800.png"},
+ {id:503, name:"제로당 소스퐁닭 버터커리", brand:" 와이앤비푸드", cat:"육가공품", e:"🍖", kcal:95, sugar:0, carb:4, sw:[], price:15100, stock:48, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNWY32DZ800.png"},
+ {id:504, name:"7days 제로 곤약젤리, 자두맛", brand:"자임에프앤비", cat:"간식/디저트", e:"🍫", kcal:3, sugar:0, carb:7.6, sw:["에리스리톨"], price:4290, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNRK4GTQG00.png"},
+ {id:505, name:"모구모구 나타데코코 제로슈가 트로피칼딜라이트 플래버 드링크", brand:"SAPPE PUBLIC COMPANY LIMITED", cat:"음료", e:"🥤", kcal:8, sugar:0, carb:2, sw:[], price:11800, stock:7, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNRCXZWZG00.png"},
+ {id:506, name:"알파CD제로컷", brand:"비오팜", cat:"기타", e:"🛒", kcal:371, sugar:4.56, carb:92.25, sw:["효소처리스테비아"], price:12800, stock:16, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNR66C0VW00.png"},
+ {id:507, name:"초록매실 스파클링 제로", brand:"웅진", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:1.71, sw:["수크랄로스","아세설팜칼륨","에리스리톨"], price:14100, stock:46, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNQHE46BW00.png"},
+ {id:508, name:"제로 티베이스 캐모마일 사과향", brand:"서울팩토리", cat:"음료", e:"🥤", kcal:5, sugar:0.24, carb:40.01, sw:["수크랄로스","아세설팜칼륨","알룰로스","D-소비톨액"], price:13800, stock:22, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNQ0VM2VW00.png"},
+ {id:509, name:"클룹 애사비소다 오리지널 제로", brand:"보해양조 장성공장", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:0.64, sw:["알룰로스"], price:10800, stock:42, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNPP58SQW00.png"},
+ {id:510, name:"클룹 스프린트 에너지 레몬부스트 제로", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨"], price:13700, stock:57, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNPAFW0VW00.png"},
+ {id:511, name:"닥터 페퍼 제로 스트로베리크림향", brand:"동아에코팩", cat:"음료", e:"🥤", kcal:0, sugar:0, carb:0, sw:["수크랄로스","아세설팜칼륨"], price:14400, stock:10, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNNZCXAQW00.png"},
+ {id:512, name:"클룹 애사비소다 레몬비니거 제로", brand:"보해양조 장성공장", cat:"음료", e:"🥤", kcal:3, sugar:0, carb:0.61, sw:["알룰로스"], price:14100, stock:31, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNNAE8ZZW00.png"},
+ {id:513, name:"클룹 스프린트 에너지 사우어베리 제로", brand:"오케이에프음료", cat:"음료", e:"🥤", kcal:4, sugar:0, carb:0.8, sw:["수크랄로스","아세설팜칼륨"], price:12500, stock:47, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNKRXP0QW00.png"},
+ {id:514, name:"7days 제로 곤약젤리, 청포도맛", brand:"자임에프앤비", cat:"간식/디저트", e:"🍫", kcal:2, sugar:0, carb:7.5, sw:["에리스리톨"], price:5400, stock:15, img:"https://s3.zerofinder.co.kr/public/products/original/0KVNB57JNKG00.png"},
+ {id:515, name:"제로 티베이스 납작복숭아 망고향", brand:"서울팩토리", cat:"음료", e:"🥤", kcal:9, sugar:0.46, carb:38, sw:["수크랄로스","아세설팜칼륨","알룰로스"], price:12500, stock:49, img:"https://s3.zerofinder.co.kr/public/products/original/0KTRCSPSY3C00.png"}
+];
+
+/* ════════════════ 상태 ════════════════ */
+const S = {
+  tab:"shop", sort:"reco",
+  member:null,           // {id, name, email} — 로그인 전 null
+  cats:[], banSw:["말티톨"], kmin:"", kmax:"",
+  cmp:[], cart:{}, orders:[], events:[],
+};
+
+/* Kafka 이벤트 흉내 — commerce-service 발행 / recommendation-service 구독 */
+const TOPIC = {PRODUCT_VIEWED:"product-viewed", CART_ADDED:"cart-added", ORDER_COMPLETED:"order-completed"};
+function emit(type, p, extra){
+  const ev = {type, productId:p.id, name:p.name, img:p.img||"", cat:p.cat, at:new Date().toISOString(), ...extra};
+  S.events.push(ev);
+  try{
+    const all = JSON.parse(localStorage.getItem("zp_events")||"[]");
+    all.push(ev); localStorage.setItem("zp_events", JSON.stringify(all.slice(-500)));
+  }catch(e){}
+}
+/* 관리자 페이지(ZeroPick_관리자.html)가 localStorage("zp_events")를 구독한다 — Kafka 흉내 */
+(function seedDemoEvents(){
+  try{
+    if (localStorage.getItem("zp_events")) { S.events = JSON.parse(localStorage.getItem("zp_events")); return; }
+    const now = Date.now(), M = 60000;
+    const demo = [
+      {type:"PRODUCT_VIEWED", productId:1, name:"저당 망고 쫀득바 아이스크림", img:"https://s3.zerofinder.co.kr/public/products/original/0NMBG53AXBR00.png", cat:"간식/디저트", at:new Date(now-42*M).toISOString(), demo:true},
+      {type:"PRODUCT_VIEWED", productId:6, name:"덴마크 드링킹 요구르트 제로 플레인", img:"https://s3.zerofinder.co.kr/public/products/original/0NJQJWR07V000.png", cat:"유제품", at:new Date(now-39*M).toISOString(), demo:true},
+      {type:"CART_ADDED", productId:1, name:"저당 망고 쫀득바 아이스크림", img:"https://s3.zerofinder.co.kr/public/products/original/0NMBG53AXBR00.png", cat:"간식/디저트", qty:2, at:new Date(now-35*M).toISOString(), demo:true},
+      {type:"PRODUCT_VIEWED", productId:3, name:"망고 생요거트 파인트 474mL", img:"https://s3.zerofinder.co.kr/public/products/original/0NPYBRBQS8800.png", cat:"간식/디저트", at:new Date(now-28*M).toISOString(), demo:true},
+      {type:"ORDER_COMPLETED", productId:1, name:"저당 망고 쫀득바 아이스크림", img:"https://s3.zerofinder.co.kr/public/products/original/0NMBG53AXBR00.png", cat:"간식/디저트", qty:2, payment:"카드", at:new Date(now-25*M).toISOString(), demo:true},
+      {type:"PRODUCT_VIEWED", productId:4, name:"저당 골드키위파인 듬뿍바 아이스크림", img:"https://s3.zerofinder.co.kr/public/products/original/0NMB8TG777R00.png", cat:"간식/디저트", at:new Date(now-12*M).toISOString(), demo:true},
+      {type:"CART_ADDED", productId:6, name:"덴마크 드링킹 요구르트 제로 플레인", img:"https://s3.zerofinder.co.kr/public/products/original/0NJQJWR07V000.png", cat:"유제품", qty:1, at:new Date(now-8*M).toISOString(), demo:true},
+      {type:"ORDER_COMPLETED", productId:6, name:"덴마크 드링킹 요구르트 제로 플레인", img:"https://s3.zerofinder.co.kr/public/products/original/0NJQJWR07V000.png", cat:"유제품", qty:1, payment:"간편결제", at:new Date(now-5*M).toISOString(), demo:true},
+    ];
+    localStorage.setItem("zp_events", JSON.stringify(demo));
+    S.events = demo;
+  }catch(e){}
+})();
+
+/* ════════════════ 추천 점수 — GET /recommendation-service/recommendations/{memberId} (기획서 §8) ════════════════ */
+let RECO_TOP = new Set(), RECO_WHY = {};
+function scoreAll(){
+  const W = {PRODUCT_VIEWED:1, CART_ADDED:0, ORDER_COMPLETED:50};
+  const out = {};
+  for (const p of P){
+    if (p.sw.some(sw=>S.banSw.includes(sw))) continue;   // 하드 필터
+    let sc=0; const why=[];
+    if (p.sugar===0){sc+=1.5; why.push("당류 0g");}
+    else if (p.sugar<=3){sc+=.7; why.push(`당류 ${p.sugar}g`);}
+    let d=0,c=0;
+    for (const b of S.events){ if(b.productId===p.id) d+=W[b.type]; else if(b.cat===p.cat) c+=W[b.type]*.5; }
+    if(d){sc+=d; why.push(`이 상품 행동 +${d}`);}
+    if(c){sc+=c; why.push(`${p.cat} 관심 +${c.toFixed(1)}`);}
+    out[p.id]={s:sc, why};
+  }
+  return out;
+}
+function recommend(){
+  const pool = P.filter(p => !p.sw.some(s=>S.banSw.includes(s)) && p.stock>0);
+  const W = {PRODUCT_VIEWED:1, CART_ADDED:0, ORDER_COMPLETED:50};
+  const catN = {};
+  S.events.forEach(b=>{ catN[b.cat]=(catN[b.cat]||0)+1; });
+  const scored = pool.map(p=>{
+    let s=0; const why=[];
+    if (S.banSw.length) why.push(`<em>${S.banSw.join("·")}</em> 제외 충족`);
+    if (p.sugar===0){s+=1.5; why.push("당류 0g");}
+    else if (p.sugar<=3){s+=.7; why.push(`당류 ${p.sugar}g`);}
+    let d=0,c=0;
+    for (const b of S.events){ if(b.productId===p.id) d+=W[b.type]; else if(b.cat===p.cat) c+=W[b.type]*.5; }
+    if(d){s+=d; why.push(`이 상품 행동 +${d}`);}
+    if(c){s+=c; why.push(`${p.cat} 행동 ${catN[p.cat]||0}회 +${c.toFixed(1)}`);}
+    return {p,s,why};
+  });
+  scored.sort((a,b)=>b.s-a.s||a.p.price-b.p.price);
+  return scored.slice(0,3);
+}
+
+/* ════════════════ 필터·정렬 ════════════════ */
+function filtered(){
+  const q=(document.getElementById("q")?.value||"").trim();
+  let r = P.filter(p =>
+    !p.sw.some(s=>S.banSw.includes(s)) &&
+    (!S.cats.length || S.cats.includes(p.cat)) &&
+    (S.kmin==="" || p.kcal>=+S.kmin) && (S.kmax==="" || p.kcal<=+S.kmax) &&
+    (!q || p.name.includes(q) || p.brand.includes(q))
+  );
+  if (S.sort==="reco"){
+    const sc=scoreAll();
+    return r.sort((a,b)=>(sc[b.id]?.s||0)-(sc[a.id]?.s||0) || a.id-b.id);
+  }
+  const f={pop:(a,b)=>b.stock-a.stock, kcal:(a,b)=>a.kcal-b.kcal, price:(a,b)=>a.price-b.price, sugar:(a,b)=>a.sugar-b.sugar};
+  return r.sort(f[S.sort]);
+}
+
+/* ════════════════ 렌더 ════════════════ */
+const TABS=[["shop","제품검색"],["cart","장바구니"],["orders","주문내역"]];
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1500);}
+function cartCount(){return Object.values(S.cart).reduce((a,n)=>a+n,0);}
+
+function bdgs(p){
+  return p.sw.length
+    ? p.sw.map(s=>`<span class="bdg ${S.banSw.includes(s)?'ban':''}">${s}</span>`).join("")
+    : `<span class="bdg none">감미료 무첨가</span>`;
+}
+function pcard(p){
+  const inCmp=S.cmp.includes(p.id), sold=p.stock<=0;
+  return `<div class="pcard" onclick="openDetail(${p.id})">
+    ${sold?'<div class="soldban">품절</div>':''}
+    <button class="cmpb ${inCmp?'on':''}" onclick="event.stopPropagation();toggleCmp(${p.id})">${inCmp?'✓ 비교':'+ 비교'}</button>
+    <div class="thumb" style="position:relative">${p.e}${pic(p)}</div>
+    <h4>${p.name}</h4>
+    <div class="brand">${p.brand}</div>
+    <div class="nut">칼로리 <b>${p.kcal}kcal</b> · 당류 <b>${p.sugar}g</b> · 탄수화물 <b>${p.carb}g</b></div>
+    <div class="badges">${RECO_TOP.has(p.id)?`<span class="bdg airec" title="${(RECO_WHY[p.id]?.why||[]).join(' · ')}">✨ 추천</span>`:''}${bdgs(p)}</div>
+    <div class="prow"><span class="krw">${p.price.toLocaleString()}<small>KRW</small></span>
+      <span class="stock ${p.stock>0&&p.stock<10?'low':''}">${sold?'':'재고 '+p.stock}</span></div>
+    <div class="cardacts">
+      <button onclick="event.stopPropagation();addCart(${p.id})" ${sold?'disabled':''}>🛒 담기</button>
+      <button class="buy" onclick="event.stopPropagation();buyNow(${p.id})" ${sold?'disabled':''}>바로 주문</button>
+    </div></div>`;
+}
+
+function render(){
+  $("gnav").innerHTML = TABS.map(([k,l])=>
+    `<button class="${S.tab===k?'on':''}" onclick="S.tab='${k}';render()">${l}${k==='cart'&&cartCount()?` (${cartCount()})`:''}</button>`).join("");
+  $("banCnt").textContent = S.banSw.length?`제외 ${S.banSw.length}`:"설정";
+  $("authbtns").innerHTML = S.member
+    ? `<span style="font-size:13px;color:var(--muted)">👋 <b>${S.member.name}</b>님</span>
+       <button class="profileb" onclick="S.member=null;toast('로그아웃');render()">로그아웃</button>`
+    : `<button class="profileb" onclick="openAuth('login')">로그인</button>
+       <button class="joinb" onclick="openAuth('join')">회원가입</button>`;
+  const w=$("wrap");
+
+  if (S.tab==="shop"){
+    const list=filtered();
+    RECO_WHY = scoreAll();
+    // 행동 신호가 실제로 쌓인 상품만 배지 (점수 2 이상, 상위 4개) — 쿠팡 랭킹순의 "추천" 표시 방식
+    RECO_TOP = new Set(list.filter(p=>(RECO_WHY[p.id]?.s||0)>=2)
+      .sort((a,b)=>RECO_WHY[b.id].s-RECO_WHY[a.id].s).slice(0,4).map(p=>p.id));
+    const excluded = P.filter(p=>p.sw.some(s=>S.banSw.includes(s)));
+    w.innerHTML = `
+    <aside>
+      <section><h5>카테고리</h5><div class="catlist">
+        ${CATS.map(c=>`<span class="cat ${S.cats.includes(c)?'on':''}" onclick="tgl(S.cats,'${c}')">${c}</span>`).join("")}
+      </div></section>
+      <section><h5>감미료 <span style="font-weight:400;color:var(--faint)">(체크 = 제외)</span></h5><div class="swlist">
+        ${SW_ALL.map(s=>`<label class="swrow ${S.banSw.includes(s)?'banned':''}">
+          <input type="checkbox" ${S.banSw.includes(s)?'checked':''} onchange="tgl(S.banSw,'${s}')">${s}</label>`).join("")}
+      </div></section>
+      <section><h5>칼로리 (kcal)</h5><div class="kcal-in">
+        <input type="number" placeholder="0" value="${S.kmin}" onchange="S.kmin=this.value;render()"> ~
+        <input type="number" placeholder="500" value="${S.kmax}" onchange="S.kmax=this.value;render()">
+      </div></section>
+      <button class="resetb" onclick="S.cats=[];S.banSw=[];S.kmin='';S.kmax='';render()">필터 초기화</button>
+    </aside>
+    <main>
+      <div class="toolbar"><h2>제품검색</h2><span class="cnt">총 ${list.length}개 제품</span>
+        <select onchange="S.sort=this.value;render()">
+          <option value="reco" ${S.sort==='reco'?'selected':''}>추천순 ✨</option>
+          <option value="pop" ${S.sort==='pop'?'selected':''}>인기순</option>
+          <option value="kcal" ${S.sort==='kcal'?'selected':''}>낮은 칼로리순</option>
+          <option value="sugar" ${S.sort==='sugar'?'selected':''}>낮은 당류순</option>
+          <option value="price" ${S.sort==='price'?'selected':''}>낮은 가격순</option>
+        </select></div>
+      <p class="hint">기본 정렬은 <b>추천순</b> — 회원님의 행동·조건이 반영돼요 · 카드의 <b>+비교</b>로 원하는 만큼 나란히 볼 수 있어요
+        ${excluded.length?` · 🚫 프로필 제외 조건으로 <b>${excluded.length}개</b> 상품이 목록에서 빠져 있어요`:""}</p>
+      ${list.length?`<div class="grid">${list.map(pcard).join("")}</div>`
+        :`<div class="empty">조건에 맞는 제품이 없어요 — 필터를 조정해 보세요</div>`}
+      <div class="devnote">🔧 개발 관점: 이 화면 = product-service(목록·필터) + Gateway 라우팅. <b>추천순 정렬·✨배지 = GET /recommendation-service/recommendations/{memberId}</b>(추천 API, 선택 6·8 측정 대상). 우하단 💬 = 상담 챗봇(핵심 10번). 상품을 조회·주문하면 추천순이 실제로 바뀐다.
+      카드 클릭 → PRODUCT_VIEWED, 담기 → CART_ADDED, 주문 → ORDER_COMPLETED 이벤트가 Kafka로 발행된다.</div>
+    </main>`;
+  }
+
+  if (S.tab==="cart"){
+    const ids=Object.keys(S.cart);
+    const total=ids.reduce((a,id)=>a+P.find(p=>p.id==id).price*S.cart[id],0);
+    w.innerHTML=`<main style="max-width:720px;margin:0 auto">
+      <div class="toolbar"><h2>장바구니</h2><span class="cnt">${cartCount()}개</span></div>
+      ${ids.length?`<div class="list">${ids.map(id=>{const p=P.find(x=>x.id==id);return `
+        <div class="lrow"><div class="thumb2" style="position:relative">${p.e}${pic(p)}</div>
+          <div><div class="nm">${p.name}</div><div class="mt">${p.brand} · ${p.price.toLocaleString()}원</div></div>
+          <div class="qty" style="margin-left:auto"><button onclick="chgQty(${p.id},-1)">−</button>${S.cart[id]}<button onclick="chgQty(${p.id},1)">+</button></div>
+          <div class="rp">${(p.price*S.cart[id]).toLocaleString()}원</div></div>`;}).join("")}</div>
+      <div class="orderbar"><span class="tt">합계 <b>${total.toLocaleString()}원</b></span>
+        <button onclick="orderAll()">주문하기</button></div>`
+      :`<div class="empty">장바구니가 비어 있어요</div>`}</main>`;
+  }
+
+  if (S.tab==="orders"){
+    w.innerHTML=`<main style="max-width:720px;margin:0 auto">
+      <div class="toolbar"><h2>주문내역</h2></div>
+      ${S.orders.length?`<div class="list">${S.orders.slice().reverse().map(o=>`
+        <div class="lrow"><div class="thumb2" style="position:relative">${o.e}${pic(o)}</div>
+          <div><div class="nm">${o.name} × ${o.qty}</div><div class="mt">${o.at} · ${o.no} · ${o.method}
+   · <span style="color:var(--green);font-weight:700">${o.status}</span></div></div>
+          <div class="rp">${o.total.toLocaleString()}원</div></div>`).join("")}</div>`
+      :`<div class="empty">아직 주문이 없어요</div>`}
+      <div class="devnote">🔧 주문 시 commerce-service 가 OpenFeign 으로 product-service 재고를 차감하고(핵심 7번),
+      ORDER_COMPLETED 이벤트를 발행한다. 재고가 줄어드는 것은 제품검색 탭 카드에서 확인.</div></main>`;
+  }
+
+  if (S.tab==="dev"){
+    w.innerHTML=`<main>
+      <div class="toolbar"><h2>이벤트 로그</h2><span class="cnt">Kafka 로 흐르는 것 — 백엔드 팀 공유용</span></div>
+      <div class="log">${S.events.length?S.events.slice().reverse().map(b=>
+        `▸ <span class="tp">${TOPIC[b.type]}</span> <span class="ev">${b.type}</span> { memberId: 1, productId: ${b.productId}, category: "${b.cat}"${b.qty?`, qty: ${b.qty}`:""}${b.payment?`, payment: "${b.payment}"`:""} } <span class="tm">${b.at.toLocaleTimeString()}</span>`).join("<br>")
+        :"아직 이벤트가 없어요 — 제품을 클릭·담기·주문하면 여기 쌓입니다."}</div>
+      <div class="devnote">이 3개 토픽의 payload 를 Avro 스키마로 Schema Registry 에 등록한다(선택 2번).
+      recommendation-service 는 이 로그를 구독해 행동 가중치를 계산한다(조회+1 / <b>주문+50</b> · 담기는 채점 요건상 발행·저장하되 가중치 0) — 추천순 정렬이 이걸로 바뀐다.</div></main>`;
+  }
+
+  if (S.tab==="stats"){
+    const ev=S.events, n=t=>ev.filter(e=>e.type===t).length;
+    const v=n("PRODUCT_VIEWED"), c=n("CART_ADDED"), o=n("ORDER_COMPLETED");
+    const conv=v?Math.round(o/v*1000)/10:0;
+    const byCat={}; ev.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+1;});
+    const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const mx=cats.length?cats[0][1]:1;
+    const byP={}; ev.filter(e=>e.type==="PRODUCT_VIEWED").forEach(e=>{byP[e.productId]=(byP[e.productId]||0)+1;});
+    const tops=Object.entries(byP).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const kpi=(t,val,sub)=>`<div style="flex:1;min-width:150px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+      <div style="font-size:12px;color:var(--muted)">${t}</div>
+      <div style="font-size:26px;font-weight:800;color:var(--ink);margin:2px 0">${val}</div>
+      <div style="font-size:11px;color:var(--faint)">${sub}</div></div>`;
+    w.innerHTML=`<main>
+      <div class="toolbar"><h2>성과 대시보드</h2><span class="cnt">선택 6번 — 이 세션의 행동 데이터로 실시간 집계</span></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        ${kpi("상품 조회",v,"PRODUCT_VIEWED · 가중치 +1")}
+        ${kpi("장바구니 담기",c,"CART_ADDED · 가중치 0")}
+        ${kpi("주문 완료",o,"ORDER_COMPLETED · 가중치 +50")}
+        ${kpi("조회→주문 전환율",conv+"%","주문 ÷ 조회")}
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:300px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+          <b style="font-size:13px">카테고리별 행동 이벤트</b>
+          <div style="margin-top:10px">${cats.length?cats.map(([k,cnt])=>
+            `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px">
+             <span style="width:78px;color:var(--muted)">${k}</span>
+             <div style="flex:1;background:#eef2ff;border-radius:5px;height:16px"><div style="width:${Math.round(cnt/mx*100)}%;background:var(--indigo);height:16px;border-radius:5px"></div></div>
+             <b>${cnt}</b></div>`).join(""):'<span style="font-size:12.5px;color:var(--faint)">아직 데이터가 없어요 — 제품을 클릭·담기·주문해 보세요</span>'}</div>
+        </div>
+        <div style="flex:1;min-width:300px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+          <b style="font-size:13px">조회 상위 상품</b>
+          <div style="margin-top:10px">${tops.length?tops.map(([id,cnt])=>{const p=P.find(x=>x.id==id);
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12.5px">
+              <span class="me" style="position:relative;display:inline-flex;width:1.5em;height:1.5em;align-items:center;justify-content:center">${p.e}${pic(p)}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span><b>${cnt}회</b></div>`;}).join("")
+            :'<span style="font-size:12.5px;color:var(--faint)">아직 조회 기록이 없어요</span>'}</div>
+        </div>
+      </div>
+      <div class="devnote">recommendation-service 의 GET /recommendation-service/metrics 가 반환할 집계를 시각화한 화면.
+      실서비스에서는 추천 클릭률(reco_click ÷ 노출)과 챗봇 폴백률(usedFallback 비율)이 추가된다 — FR-12.</div></main>`;
+  }
+
+  /* compare tray */
+  const tray=$("tray");
+  if (S.cmp.length && S.tab==="shop"){
+    tray.classList.add("show");
+    $("trayw").innerHTML = `<b style="font-size:13px">비교함</b> ${S.cmp.map(id=>{const p=P.find(x=>x.id===id);
+      return `<span class="trayitem">${p.e} ${p.name.slice(0,14)} <button onclick="toggleCmp(${id})">✕</button></span>`;}).join("")}
+      <button class="traygo" ${S.cmp.length<2?'disabled':''} onclick="openCompare()">비교하기 (${S.cmp.length})</button>`;
+  } else tray.classList.remove("show");
+}
+
+/* ════════════════ 모달 ════════════════ */
+function openDetail(id){
+  const p=P.find(x=>x.id===id);
+  emit("PRODUCT_VIEWED",p);
+  $("modal").innerHTML=`<button class="x" onclick="closeModal()">✕</button>
+    <div style="display:flex;gap:18px;align-items:flex-start">
+      <div class="thumb" style="width:130px;height:130px;flex:none;font-size:60px;position:relative">${p.e}${pic(p)}</div>
+      <div style="flex:1"><h3>${p.name}</h3><p class="sub2">${p.brand} · ${p.cat}</p>
+        <div class="badges" style="margin-bottom:8px">${bdgs(p)}</div>
+        <span class="krw" style="font-size:20px">${p.price.toLocaleString()}<small>KRW</small></span>
+        <span style="font-size:12px;color:var(--faint);margin-left:10px">재고 ${p.stock}개</span></div></div>
+    <table><thead><tr><th>칼로리</th><th>당류</th><th>탄수화물</th><th>감미료</th></tr></thead>
+    <tbody><tr><td>${p.kcal}kcal</td><td>${p.sugar}g</td><td>${p.carb}g</td><td>${p.sw.join(", ")||"무첨가"}</td></tr></tbody></table>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="cardacts" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:12px" onclick="addCart(${p.id});closeModal()">🛒 장바구니 담기</button>
+      <button style="flex:1;border:none;background:var(--indigo);color:#fff;border-radius:9px;padding:12px;font-weight:700" onclick="buyNow(${p.id});closeModal()">바로 주문</button></div>
+    <div class="devnote">🔧 방금 PRODUCT_VIEWED 이벤트가 발행됐다(이벤트 로그 탭 확인). 이 조회가 AI 추천 점수 +1 로 반영된다.</div>`;
+  $("modalbg").classList.add("show");
+  render();
+}
+function openCompare(){
+  const ps=S.cmp.map(id=>P.find(p=>p.id===id));
+  const mn=k=>Math.min(...ps.map(p=>p[k]));
+  $("modal").innerHTML=`<button class="x" onclick="closeModal()">✕</button>
+    <h3>영양성분 비교</h3><p class="sub2">초록 칸이 가장 유리한 값</p>
+    <div style="overflow-x:auto"><table style="min-width:${120+S.cmp.length*170}px"><thead><tr><th></th>${ps.map(p=>`<th>${p.e} ${p.name}<br><span style="font-weight:400;color:var(--faint)">${p.brand}</span></th>`).join("")}</tr></thead><tbody>
+      <tr><td>칼로리</td>${ps.map(p=>`<td class="${p.kcal===mn('kcal')?'best':''}">${p.kcal}kcal</td>`).join("")}</tr>
+      <tr><td>당류</td>${ps.map(p=>`<td class="${p.sugar===mn('sugar')?'best':''}">${p.sugar}g</td>`).join("")}</tr>
+      <tr><td>탄수화물</td>${ps.map(p=>`<td class="${p.carb===mn('carb')?'best':''}">${p.carb}g</td>`).join("")}</tr>
+      <tr><td>감미료</td>${ps.map(p=>`<td style="font-size:12px">${p.sw.join(", ")||"무첨가"}</td>`).join("")}</tr>
+      <tr><td>가격</td>${ps.map(p=>`<td class="${p.price===mn('price')?'best':''}">${p.price.toLocaleString()}원</td>`).join("")}</tr>
+    </tbody></table></div>`;
+  $("modalbg").classList.add("show");
+}
+function openProfile(){
+  $("modal").innerHTML=`<button class="x" onclick="closeModal()">✕</button>
+    <h3>내 프로필</h3><p class="sub2">recommendation-service 의 PREFERENCE 로 저장 — 제외 감미료는 목록·추천에서 하드 필터로 동작</p>
+    <div class="mh5">못 먹는 감미료 <small>체크하면 해당 상품이 아예 안 보여요</small></div>
+    <div class="chips">${SW_ALL.map(s=>`<span class="chip ban ${S.banSw.includes(s)?'on':''}" onclick="tgl(S.banSw,'${s}');openProfile()">${s}</span>`).join("")}</div>
+    <div class="mh5">관심 카테고리</div>
+    <div class="chips">${CATS.map(c=>`<span class="chip ${S.cats.includes(c)?'on':''}" onclick="tgl(S.cats,'${c}');openProfile()">${c}</span>`).join("")}</div>
+    <div class="devnote">측정지표 "조건 위반률 0%" = 여기서 제외한 감미료가 추천 Top3 에 한 번도 나타나지 않는 것.</div>`;
+  $("modalbg").classList.add("show");
+  render();
+}
+function closeModal(){$("modalbg").classList.remove("show");}
+
+/* ── 회원가입/로그인 (FR-01) — POST /commerce-service/members, /commerce-service/members/login ── */
+const MEMBERS = [{id:1, name:"준하", email:"baik@zeropick.dev", pw:"1234"}];  // 데모 계정
+function openAuth(mode){
+  const join = mode==="join";
+  $("modal").innerHTML = `<button class="x" onclick="closeModal()">\u2715</button>
+    <h3>${join?"회원가입":"로그인"}</h3>
+    <p class="sub2">${join?"POST /commerce-service/members — 이메일 중복 검증":"POST /commerce-service/members/login — 실패 시 401"}
+      <span style="color:var(--faint)">(데모 계정: baik@zeropick.dev / 1234)</span></p>
+    ${join?`<div class="mh5">이름</div><input id="au_name" class="au" placeholder="이름">`:""}
+    <div class="mh5">이메일</div><input id="au_email" class="au" placeholder="이메일" value="${join?"":"baik@zeropick.dev"}">
+    <div class="mh5">비밀번호</div><input id="au_pw" type="password" class="au" placeholder="비밀번호" value="${join?"":"1234"}">
+    <div id="au_err" style="color:var(--red);font-size:12px;min-height:18px;margin-top:6px"></div>
+    <button style="width:100%;border:none;background:var(--indigo);color:#fff;border-radius:10px;padding:13px;font-weight:700;font-size:14px"
+      onclick="${join?"doJoin()":"doLogin()"}">${join?"가입하기":"로그인"}</button>
+    <p style="text-align:center;font-size:12.5px;color:var(--muted);margin:12px 0 0">
+      ${join?`이미 계정이 있나요? <a href="#" onclick="openAuth('login');return false">로그인</a>`
+            :`계정이 없나요? <a href="#" onclick="openAuth('join');return false">회원가입</a>`}</p>
+    <style>.au{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:13.5px;font-family:inherit;outline:none}
+    .au:focus{border-color:var(--indigo)}</style>`;
+  $("modalbg").classList.add("show");
+}
+function doJoin(){
+  const name=$("au_name").value.trim(), email=$("au_email").value.trim(), pw=$("au_pw").value;
+  if(!name||!email||!pw){$("au_err").textContent="모든 항목을 입력하세요";return;}
+  if(MEMBERS.some(m=>m.email===email)){$("au_err").textContent="이미 가입된 이메일입니다 (409)";return;}
+  const m={id:MEMBERS.length+1, name, email, pw};
+  MEMBERS.push(m); S.member=m;
+  closeModal(); toast(`\u2705 가입 완료 — ${name}님 환영합니다`); render();
+}
+function doLogin(){
+  const email=$("au_email").value.trim(), pw=$("au_pw").value;
+  const m=MEMBERS.find(x=>x.email===email&&x.pw===pw);
+  if(!m){$("au_err").textContent="이메일 또는 비밀번호가 올바르지 않습니다 (401)";return;}
+  S.member=m;
+  closeModal(); toast(`\u2705 ${m.name}님 로그인`); render();
+}
+
+/* ════════════════ 액션 ════════════════ */
+function tgl(arr,v){const i=arr.indexOf(v);i>=0?arr.splice(i,1):arr.push(v);render();}
+function toggleCmp(id){
+  const i=S.cmp.indexOf(id);
+  if(i>=0)S.cmp.splice(i,1);
+  else S.cmp.push(id);
+  render();
+}
+function addCart(id){const p=P.find(x=>x.id===id);S.cart[id]=(S.cart[id]||0)+1;emit("CART_ADDED",p,{qty:1});toast(`🛒 ${p.name} 담김`);render();}
+function chgQty(id,d){S.cart[id]=(S.cart[id]||0)+d;if(S.cart[id]<=0)delete S.cart[id];render();}
+let orderNo=1001;
+function doOrder(p,qty,method){
+  p.stock-=qty;                            // OpenFeign 재고 차감 흉내 (PAID 시점)
+  emit("ORDER_COMPLETED",p,{qty,payment:method});
+  S.orders.push({no:"ZP"+(orderNo++),name:p.name,e:p.e,qty,total:p.price*qty,
+    method,status:"결제완료",at:new Date().toLocaleTimeString()});
+}
+function buyNow(id){const p=P.find(x=>x.id===id);if(p.stock<1){toast("재고 부족");return;}openCheckout([{id,qty:1}],false);}
+function orderAll(){
+  const items=Object.keys(S.cart).map(id=>({id:+id,qty:S.cart[id]}));
+  if(!items.length)return;
+  openCheckout(items,true);
+}
+/* 주문/결제 모달 — 실제 구현은 주문 상태머신 PENDING → PAID → COMPLETED */
+function openCheckout(items,fromCart){
+  const rows=items.map(it=>{const p=P.find(x=>x.id===it.id);return {p,qty:Math.min(it.qty,p.stock)};});
+  const total=rows.reduce((a,r)=>a+r.p.price*r.qty,0);
+  $("modal").innerHTML=`<button class="x" onclick="closeModal()">✕</button>
+    <h3>주문 / 결제</h3><p class="sub2">commerce-service — 주문 생성(PENDING) → 결제 승인(PAID) → 재고 차감(OpenFeign) → ORDER_COMPLETED 발행</p>
+    ${rows.map(r=>`<div class="lrow" style="margin-bottom:8px"><div class="thumb2" style="position:relative">${r.p.e}${pic(r.p)}</div>
+      <div><div class="nm">${r.p.name}</div><div class="mt">${r.p.brand} · ${r.qty}개</div></div>
+      <div class="rp">${(r.p.price*r.qty).toLocaleString()}원</div></div>`).join("")}
+    <div class="mh5">배송지</div>
+    <div style="border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--muted)">준하님 · 인천 미추홀구 ○○로 12 <span style="color:var(--faint)">(기본 배송지)</span></div>
+    <div class="mh5">결제 수단</div>
+    <div class="chips" id="payms">${["신용카드","카카오페이","토스페이","무통장입금"].map((m,i)=>
+      `<span class="chip ${i===0?'on':''}" onclick="[...document.querySelectorAll('#payms .chip')].forEach(c=>c.classList.remove('on'));this.classList.add('on')">${m}</span>`).join("")}</div>
+    <div class="orderbar" style="margin-top:8px"><span class="tt">결제 금액 <b>${total.toLocaleString()}원</b></span>
+      <button id="payBtn" onclick='doPay(${JSON.stringify(items)},${!!fromCart})'>결제하기</button></div>
+    <div class="devnote">🔧 프로토타입은 모의 결제다. 실제 구현: 결제 승인 전 주문은 PENDING, 승인 시 PAID + 재고 차감, 실패 시 재고 원복. 외부 PG 연동은 범위 외(스트레치).</div>`;
+  $("modalbg").classList.add("show");
+}
+function doPay(items,fromCart){
+  const btn=$("payBtn"); btn.disabled=true; btn.textContent="결제 진행 중…";
+  const method=document.querySelector("#payms .chip.on")?.textContent||"신용카드";
+  setTimeout(()=>{
+    for(const it of items){const p=P.find(x=>x.id===it.id);const q=Math.min(it.qty,p.stock);if(q>0)doOrder(p,q,method);}
+    if(fromCart)S.cart={};
+    closeModal(); S.tab="orders"; toast(`✅ ${method} 결제 완료`); render();
+  },1100);
+}
+
+/* ════════════════ 상담 챗봇 (핵심 10번 — 실제 구현은 LLM API) ════════════════ */
+const CHAT=[{who:"bot",html:"안녕하세요${S.member?', '+S.member.name+'님':''}! 제로픽 상담봇이에요 👋<br>조건을 말하면 맞는 상품을 찾아 드리고, 상품 설명도 해드려요.<div class='src'>실제 구현: 질의 → LLM 조건 추출 → 하드필터+행동 가중치 랭킹 → LLM 답변 생성. 프로토타입은 규칙 기반 파서(=LLM 장애 시 폴백 경로)로 동작.</div>"}];
+const CHIPS=["말티톨 없는 간식 추천해줘","5천원 이하 제로 탄산 있어?","릴리스 베이킹 칩 설명해줘","프로틴 음료 뭐 있어?"];
+
+function toggleChat(){ $("chatpanel").classList.toggle("show"); drawChat(); }
+function drawChat(){
+  $("chatmsgs").innerHTML = CHAT.map(m=>`<div class="cmsg ${m.who}">${m.html}</div>`).join("");
+  $("chatchips").innerHTML = CHIPS.map(c=>`<button onclick="askChip('${c}')">${c}</button>`).join("");
+  $("chatmsgs").scrollTop = 1e6;
+}
+function askChip(q){ $("chatq").value=q; sendChat(); }
+function sendChat(){
+  const q=$("chatq").value.trim(); if(!q) return;
+  CHAT.push({who:"user",html:q}); $("chatq").value="";
+  setTimeout(()=>{ CHAT.push({who:"bot",html:chatReply(q)}); drawChat(); }, 260);
+  drawChat();
+}
+function miniCard(p, why){
+  return `<div class="mini" onclick="openDetail(${p.id})"><span class="me" style="position:relative;display:inline-flex;width:1.5em;height:1.5em;align-items:center;justify-content:center">${p.e}${pic(p)}</span>
+    <span><span class="mn">${p.name}</span><br><span class="mm">${why||`당류 ${p.sugar}g · ${p.kcal}kcal`}</span></span>
+    <span class="mp">${p.price.toLocaleString()}원</span></div>`;
+}
+function chatReply(q){
+  /* ① 상품 설명 — 상품명/브랜드가 질의에 들어 있으면 설명 생성 (LLM 상품 설명 자동 생성에 해당) */
+  const target = P.find(p => q.includes(p.brand) || p.name.split(" ").some(w=>w.length>=2&&q.includes(w)&&!["제로","저당","초콜릿","프로틴","드링크","스파클링"].includes(w)));
+  if (target && /설명|어때|뭐야|알려|성분|어떤/.test(q)){
+    emit("PRODUCT_VIEWED", target);
+    const ban = target.sw.filter(s=>S.banSw.includes(s));
+    return `<b>${target.name}</b>은(는) ${target.brand}의 ${target.cat} 제품이에요.<br>
+      당류 <b>${target.sugar}g</b>, ${target.kcal}kcal, 탄수화물 ${target.carb}g이고
+      감미료는 ${target.sw.join(", ")||"쓰지 않았"}어요.
+      ${ban.length?`<br>⚠️ 회원님이 제외한 <b>${ban.join(", ")}</b>이 포함돼 있어요.`:
+                   `<br>회원님의 제외 조건과 충돌하지 않아요 ✅`}
+      ${miniCard(target)}<div class="src">LLM 상품 설명 자동 생성 · PRODUCT_VIEWED 이벤트 발행됨</div>`;
+  }
+  /* ② 조건 추출 (실제로는 LLM 이 JSON 으로 추출 — 선택 10번 자연어 검색과 동일 파이프라인) */
+  const cond={ban:[...S.banSw], cat:null, maxP:null, zero:false, protein:false};
+  SW_ALL.forEach(sw=>{ if(q.includes(sw)&&/없|빼|제외|말고|안 ?들/.test(q)&&!cond.ban.includes(sw)) cond.ban.push(sw); });
+  let m=q.match(/([\d,]+)\s*원\s*(이하|아래|밑|안)/); if(m) cond.maxP=+m[1].replace(/,/g,"");
+  m=q.match(/(\d+)\s*천\s*원?\s*(이하|아래|밑|안)?/); if(m&&!cond.maxP) cond.maxP=+m[1]*1000;
+  m=q.match(/(\d+)\s*만\s*원?\s*(이하|아래|밑|안)?/); if(m&&!cond.maxP) cond.maxP=+m[1]*10000;
+  if(/당류 ?0|무설탕|제로슈거/.test(q)) cond.zero=true;
+  if(/프로틴|단백질/.test(q)) cond.protein=true;
+  if(/탄산|스파클링/.test(q)) cond.cat="탄산";
+  else if(/음료|드링크|마실/.test(q)) cond.cat="음료";
+  else if(/간식|과자|초콜릿|디저트|캔디|젤리/.test(q)) cond.cat="간식/디저트";
+  else if(/시럽|소스|조미료/.test(q)) cond.cat="조미료/소스";
+
+  let pool=P.filter(p=>!p.sw.some(s=>cond.ban.includes(s)) && p.stock>0
+    && (!cond.cat||p.cat===cond.cat) && (!cond.maxP||p.price<=cond.maxP)
+    && (!cond.zero||p.sugar===0) && (!cond.protein||/프로틴/.test(p.name)));
+  /* ③ 랭킹 — 행동 가중치 재사용 */
+  const W={PRODUCT_VIEWED:1,CART_ADDED:0,ORDER_COMPLETED:50};
+  pool=pool.map(p=>{let sc=(p.sugar===0?1.5:0);
+    S.events.forEach(b=>{if(b.productId===p.id)sc+=W[b.type];else if(b.cat===p.cat)sc+=W[b.type]*.5;});
+    return{p,sc};}).sort((a,b)=>b.sc-a.sc||a.p.price-b.p.price).slice(0,3);
+
+  const condTxt=[cond.ban.length?`${cond.ban.join("·")} 제외`:null, cond.cat, cond.maxP?`${cond.maxP.toLocaleString()}원 이하`:null,
+    cond.zero?"당류 0g":null, cond.protein?"프로틴":null].filter(Boolean).join(" / ");
+  if(!pool.length) return `조건(${condTxt||"없음"})에 맞는 상품을 못 찾았어요 😔 조건을 조금 풀어볼까요?`;
+  return `<b>${condTxt||"전체"}</b> 조건으로 ${pool.length}개를 찾았어요.
+    ${pool.map(({p})=>miniCard(p)).join("")}
+    <div class="src">조건 추출(LLM) → 하드필터 → 행동 가중치 랭킹 · 프로필 제외 감미료는 항상 적용(조건 위반률 0%)</div>`;
+}
+render();
+</script>
+</body>
+</html>

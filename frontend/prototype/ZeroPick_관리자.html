@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>ZeroPick Admin — 성과 · 이벤트</title>
+<style>
+  :root {
+    --bg:#F6F7F9; --surface:#FFFFFF; --line:#E6E8EC; --line2:#F0F1F4;
+    --ink:#111827; --body:#374151; --muted:#6B7280; --faint:#9CA3AF;
+    --primary:#4F46E5; --primary-soft:#EEF2FF;
+    --view:#3B82F6; --cart:#F59E0B; --order:#10B981; --danger:#EF4444;
+    --side:#0B1220; --side-line:#1E293B;
+    --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Pretendard','Segoe UI','Malgun Gothic',sans-serif; background:var(--bg); color:var(--body);
+         font-size:13px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ── 셸 ── */
+  .shell { display:flex; min-height:100vh; }
+  aside { width:216px; flex:none; background:var(--side); color:#CBD5E1; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  .brand { display:flex; align-items:center; gap:10px; padding:18px 20px 16px; border-bottom:1px solid var(--side-line); }
+  .brand .logo { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6366F1,#8B5CF6);
+                 display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .brand b { color:#fff; font-size:14.5px; letter-spacing:-.01em; }
+  .brand span { display:block; font-size:10.5px; color:#64748B; margin-top:-2px; }
+  nav { padding:14px 12px; display:flex; flex-direction:column; gap:2px; }
+  nav .grp { font-size:10px; font-weight:700; color:#475569; letter-spacing:.08em; padding:12px 10px 6px; }
+  nav button { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none;
+               color:#94A3B8; font-family:inherit; font-size:13px; padding:9px 10px; border-radius:9px; cursor:pointer; }
+  nav button:hover { background:#111C33; color:#E2E8F0; }
+  nav button.on { background:#1D2A44; color:#fff; font-weight:700; }
+  nav button .soon { margin-left:auto; font-size:9.5px; color:#475569; border:1px solid #334155; border-radius:5px; padding:0 5px; }
+  .side-foot { margin-top:auto; padding:14px 20px 18px; border-top:1px solid var(--side-line); font-size:10.5px; color:#475569; line-height:1.7; }
+
+  main { flex:1; min-width:0; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,247,249,.92); backdrop-filter:blur(6px);
+            display:flex; align-items:center; gap:14px; padding:14px 28px; border-bottom:1px solid var(--line); }
+  .topbar h1 { font-size:16.5px; color:var(--ink); letter-spacing:-.01em; }
+  .live { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--order);
+          background:#ECFDF5; border:1px solid #A7F3D0; border-radius:20px; padding:3px 10px; }
+  .live .dot { width:6px; height:6px; border-radius:50%; background:var(--order); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .topbar .upd { font-size:11px; color:var(--faint); }
+  .topbar .actions { margin-left:auto; display:flex; gap:8px; }
+  .btn { border:1px solid var(--line); background:var(--surface); border-radius:9px; padding:7px 13px;
+         font-size:12px; font-family:inherit; color:var(--body); cursor:pointer; box-shadow:var(--shadow); }
+  .btn:hover { border-color:#D1D5DB; }
+  .btn.ghost-danger { color:var(--danger); }
+
+  .content { padding:22px 28px 60px; max-width:1240px; }
+
+  /* ── KPI ── */
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px; }
+  .kpi { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px 12px; box-shadow:var(--shadow); }
+  .kpi .t { font-size:11.5px; font-weight:600; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .kpi .t .sw { width:8px; height:8px; border-radius:3px; }
+  .kpi .row { display:flex; align-items:flex-end; gap:8px; margin:4px 0 2px; }
+  .kpi .v { font-size:27px; font-weight:800; color:var(--ink); letter-spacing:-.02em; line-height:1.1; }
+  .kpi .delta { font-size:10.5px; font-weight:700; border-radius:6px; padding:1px 6px; margin-bottom:5px; }
+  .kpi .delta.up { color:#047857; background:#ECFDF5; }
+  .kpi .delta.flat { color:var(--faint); background:var(--line2); }
+  .kpi .s { font-size:10.5px; color:var(--faint); }
+  .kpi svg { display:block; width:100%; height:30px; margin-top:6px; }
+
+  /* ── 카드 그리드 ── */
+  .grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  .g2 { display:grid; grid-template-columns:7fr 5fr; gap:14px; }
+  .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); }
+  .card .hd { display:flex; align-items:baseline; gap:8px; margin-bottom:12px; }
+  .card .hd b { font-size:13.5px; color:var(--ink); }
+  .card .hd span { font-size:11px; color:var(--faint); }
+  .legend { display:flex; gap:14px; margin-left:auto; font-size:11px; color:var(--muted); }
+  .legend i { display:inline-block; width:8px; height:8px; border-radius:3px; margin-right:5px; }
+
+  .empty { color:var(--faint); font-size:12.5px; text-align:center; padding:28px 0; }
+
+  /* 막대 */
+  .bar { display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12px; }
+  .bar .lbl { width:76px; color:var(--muted); flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar .trk { flex:1; background:var(--line2); border-radius:5px; height:14px; overflow:hidden; }
+  .bar .fill { background:linear-gradient(90deg,#6366F1,#818CF8); height:14px; border-radius:5px; }
+  .bar b { width:26px; text-align:right; color:var(--ink); }
+
+  /* 상위 상품 */
+  .toprow { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line2); font-size:12.5px; }
+  .toprow:last-child { border-bottom:none; }
+  .toprow .rank { width:20px; height:20px; flex:none; border-radius:6px; background:var(--line2); color:var(--muted);
+                  font-size:10.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .toprow:nth-child(2) .rank { background:#312E81; color:#fff; }
+  .toprow img { width:34px; height:34px; flex:none; object-fit:contain; border-radius:8px; border:1px solid var(--line); background:#fff; }
+  .toprow .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
+  .toprow .cnt { font-weight:800; color:var(--ink); }
+  .toprow .cnt small { font-weight:400; color:var(--faint); }
+
+  /* 퍼널 */
+  .fstep { margin-bottom:12px; }
+  .fstep .fl { display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-bottom:4px; }
+  .fstep .fl b { color:var(--ink); font-size:12.5px; }
+  .fstep .trk { background:var(--line2); border-radius:6px; height:20px; overflow:hidden; }
+  .fstep .fill { height:20px; border-radius:6px; }
+
+  /* 도넛 */
+  .donutwrap { display:flex; align-items:center; gap:18px; }
+  .donutlgd { font-size:12px; display:flex; flex-direction:column; gap:8px; }
+  .donutlgd .r { display:flex; align-items:center; gap:8px; }
+  .donutlgd i { width:9px; height:9px; border-radius:3px; }
+  .donutlgd b { color:var(--ink); margin-left:auto; padding-left:14px; }
+
+  /* ── 이벤트 테이블 ── */
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  thead th { text-align:left; font-size:11px; font-weight:700; color:var(--muted); padding:8px 10px;
+             border-bottom:1px solid var(--line); background:var(--surface); position:sticky; top:0; }
+  tbody td { padding:9px 10px; border-bottom:1px solid var(--line2); vertical-align:middle; }
+  tbody tr:hover { background:#FAFAFE; }
+  tbody tr.demo { opacity:.55; }
+  .topic { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; border-radius:6px; padding:2px 8px; white-space:nowrap; }
+  .topic.viewed { color:#1D4ED8; background:#EFF6FF; }
+  .topic.cart { color:#B45309; background:#FFFBEB; }
+  .topic.order { color:#047857; background:#ECFDF5; }
+  .prodcell { display:flex; align-items:center; gap:8px; min-width:0; }
+  .prodcell img { width:28px; height:28px; flex:none; object-fit:contain; border-radius:6px; border:1px solid var(--line); background:#fff; }
+  .prodcell span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:260px; color:var(--ink); }
+  .payload { font-family:Consolas,monospace; font-size:11px; color:var(--muted); }
+  .payload em { font-style:normal; color:#7C3AED; }
+  .demotag { font-size:9.5px; font-weight:700; color:#DB2777; background:#FDF2F8; border-radius:5px; padding:1px 5px; margin-left:6px; white-space:nowrap; display:inline-block; }
+  .tm { color:var(--faint); font-size:11.5px; white-space:nowrap; }
+
+  .footnote { margin-top:14px; font-size:11.5px; color:var(--faint); line-height:1.7; }
+  .footnote code { background:var(--primary-soft); color:var(--primary); border-radius:4px; padding:0 5px; font-family:Consolas,monospace; font-size:11px; }
+
+  @media (max-width:1020px){ .kpis{grid-template-columns:1fr 1fr} .g2,.g3{grid-template-columns:1fr} aside{display:none} }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><div class="logo">🧃</div><div><b>ZeroPick Admin</b><span>백엔드 공유 콘솔</span></div></div>
+    <nav>
+      <button onclick="window.open('ZeroPick_프로토타입.html')" style="color:#A5B4FC">🏬 쇼핑몰 열기 <span class="soon" style="border-color:#4338CA;color:#A5B4FC">고객</span></button>
+      <div class="grp">모니터링</div>
+      <button id="n_stats" class="on" onclick="go('stats')">📊 성과 대시보드</button>
+      <button id="n_log" onclick="go('log')">📡 이벤트 로그</button>
+      <div class="grp">운영 (구현 예정)</div>
+      <button disabled>📦 상품 · 재고 <span class="soon">D3</span></button>
+      <button disabled>🧾 주문 관리 <span class="soon">D3</span></button>
+      <button disabled>💬 챗봇 품질 <span class="soon">D4</span></button>
+    </nav>
+    <div class="side-foot">고객 페이지의 행동이 실시간으로 흘러온다<br>(Kafka 흉내 · localStorage)<br><br>실서비스: <b style="color:#94A3B8">/recommendation-service/metrics</b></div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <h1 id="title">성과 대시보드</h1>
+      <span class="live"><span class="dot"></span>LIVE</span>
+      <span class="upd" id="upd"></span>
+      <div class="actions" id="acts"></div>
+    </div>
+    <div class="content" id="w"></div>
+  </main>
+</div>
+
+<script>
+let TAB='stats';
+const TOPIC={PRODUCT_VIEWED:"product-viewed",CART_ADDED:"cart-added",ORDER_COMPLETED:"order-completed"};
+const TCLS={PRODUCT_VIEWED:"viewed",CART_ADDED:"cart",ORDER_COMPLETED:"order"};
+const TKO={PRODUCT_VIEWED:"조회",CART_ADDED:"담기",ORDER_COMPLETED:"주문"};
+const COLOR={PRODUCT_VIEWED:"#3B82F6",CART_ADDED:"#F59E0B",ORDER_COMPLETED:"#10B981"};
+
+function events(){ try{return JSON.parse(localStorage.getItem('zp_events')||'[]');}catch(e){return [];} }
+function clearDemo(){ localStorage.setItem('zp_events', JSON.stringify(events().filter(e=>!e.demo))); render(); }
+function clearAll(){ localStorage.setItem('zp_events','[]'); render(); }
+function go(t){ TAB=t; render(); }
+
+/* 5분 버킷 × 12 = 최근 1시간 */
+function buckets(ev){
+  const now=Date.now(), out=[];
+  for(let i=11;i>=0;i--){
+    const s=now-(i+1)*5*60000, e=now-i*5*60000;
+    const slice=ev.filter(x=>{const t=new Date(x.at).getTime(); return t>=s&&t<e;});
+    out.push({v:slice.filter(x=>x.type==='PRODUCT_VIEWED').length,
+              c:slice.filter(x=>x.type==='CART_ADDED').length,
+              o:slice.filter(x=>x.type==='ORDER_COMPLETED').length});
+  }
+  return out;
+}
+function spark(vals,color){
+  const mx=Math.max(...vals,1), W=180, H=28;
+  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*W).toFixed(1)},${(H-3-(v/mx)*(H-6)).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${W}" cy="${(H-3-(vals[vals.length-1]/mx)*(H-6)).toFixed(1)}" r="2.4" fill="${color}"/></svg>`;
+}
+function areaChart(bk){
+  const W=560,H=170,P=26;
+  const tot=bk.map(b=>b.v+b.c+b.o), mx=Math.max(...tot,4);
+  const x=i=>P+ i/(bk.length-1)*(W-P-8), y=v=>H-22-(v/mx)*(H-46);
+  const line=key=>bk.map((b,i)=>`${x(i).toFixed(1)},${y(b[key]).toFixed(1)}`).join(' ');
+  const area=`M ${x(0)},${y(tot[0])} `+bk.map((b,i)=>`L ${x(i).toFixed(1)},${y(tot[i]).toFixed(1)}`).join(' ')+` L ${x(bk.length-1)},${H-22} L ${x(0)},${H-22} Z`;
+  const gy=[0,.5,1].map(f=>{const v=Math.round(mx*f); return `<line x1="${P}" y1="${y(v)}" x2="${W-8}" y2="${y(v)}" stroke="#F0F1F4"/>
+    <text x="${P-6}" y="${y(v)+3}" font-size="9" fill="#9CA3AF" text-anchor="end" class="num">${v}</text>`;}).join('');
+  const labels=[0,3,6,9,11].map(i=>`<text x="${x(i)}" y="${H-8}" font-size="9" fill="#9CA3AF" text-anchor="middle">-${(12-i)*5}분</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity=".16"/><stop offset="100%" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs>
+    ${gy}<path d="${area}" fill="url(#ag)"/>
+    <polyline points="${line('v')}" fill="none" stroke="${COLOR.PRODUCT_VIEWED}" stroke-width="1.8"/>
+    <polyline points="${line('c')}" fill="none" stroke="${COLOR.CART_ADDED}" stroke-width="1.8"/>
+    <polyline points="${line('o')}" fill="none" stroke="${COLOR.ORDER_COMPLETED}" stroke-width="2.2"/>
+    ${labels}</svg>`;
+}
+function donut(v,c,o){
+  const tot=v+c+o||1, R=44, C=2*Math.PI*R;
+  let off=0; const seg=(n,col)=>{const len=n/tot*C; const s=`<circle r="${R}" cx="60" cy="60" fill="none" stroke="${col}" stroke-width="14"
+    stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`; off+=len; return s;};
+  return `<svg width="120" height="120" viewBox="0 0 120 120">
+    <circle r="${R}" cx="60" cy="60" fill="none" stroke="#F0F1F4" stroke-width="14"/>
+    ${seg(v,COLOR.PRODUCT_VIEWED)}${seg(c,COLOR.CART_ADDED)}${seg(o,COLOR.ORDER_COMPLETED)}
+    <text x="60" y="56" text-anchor="middle" font-size="20" font-weight="800" fill="#111827" class="num">${v+c+o}</text>
+    <text x="60" y="72" text-anchor="middle" font-size="9.5" fill="#9CA3AF">이벤트</text></svg>`;
+}
+
+function render(){
+  document.getElementById('n_stats').className = TAB==='stats'?'on':'';
+  document.getElementById('n_log').className = TAB==='log'?'on':'';
+  document.getElementById('title').textContent = TAB==='stats'?'성과 대시보드':'이벤트 로그';
+  document.getElementById('upd').textContent = '마지막 갱신 ' + new Date().toLocaleTimeString();
+  const ev=events();
+  document.getElementById('acts').innerHTML =
+    (ev.some(e=>e.demo)?'<button class="btn" onclick="clearDemo()">예시 데이터 지우기</button>':'') +
+    '<button class="btn ghost-danger" onclick="clearAll()">초기화</button>';
+  const w=document.getElementById('w');
+  const n=t=>ev.filter(e=>e.type===t).length;
+  const v=n('PRODUCT_VIEWED'), c=n('CART_ADDED'), o=n('ORDER_COMPLETED');
+
+  if(TAB==='stats'){
+    const bk=buckets(ev);
+    const conv=v?Math.round(o/v*1000)/10:0;
+    const recent=bk.slice(6).reduce((a,b)=>a+b.v+b.c+b.o,0), prev=bk.slice(0,6).reduce((a,b)=>a+b.v+b.c+b.o,0);
+    const delta = prev? Math.round((recent-prev)/prev*100) : (recent?100:0);
+    const byCat={}; ev.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+1;});
+    const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const cmx=cats.length?cats[0][1]:1;
+    const byP={}; ev.filter(e=>e.type==='PRODUCT_VIEWED').forEach(e=>{ byP[e.productId]=byP[e.productId]||{name:e.name,img:e.img,cnt:0}; byP[e.productId].cnt++; });
+    const tops=Object.values(byP).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
+    const kpi=(t,val,sub,key,col)=>`<div class="kpi">
+      <div class="t"><span class="sw" style="background:${col}"></span>${t}</div>
+      <div class="row"><span class="v num">${val}</span>
+        ${key==='tot'?`<span class="delta ${delta>0?'up':'flat'}">${delta>0?'▲ ':''}${delta}%</span>`:''}</div>
+      <div class="s">${sub}</div>
+      ${spark(bk.map(b=>key==='tot'?b.v+b.c+b.o:b[key]),col)}</div>`;
+    w.innerHTML=`
+      <div class="kpis">
+        ${kpi('상품 조회', v, 'PRODUCT_VIEWED · 가중치 +1','v',COLOR.PRODUCT_VIEWED)}
+        ${kpi('장바구니 담기', c, 'CART_ADDED · 가중치 0','c',COLOR.CART_ADDED)}
+        ${kpi('주문 완료', o, 'ORDER_COMPLETED · 가중치 +50','o',COLOR.ORDER_COMPLETED)}
+        ${kpi('조회→주문 전환율', conv+'%', '최근 30분 vs 이전 30분 증감','tot','#6366F1')}
+      </div>
+      <div class="g2" style="margin-bottom:14px">
+        <div class="card"><div class="hd"><b>행동 이벤트 추이</b><span>최근 1시간 · 5분 단위</span>
+          <div class="legend"><span><i style="background:${COLOR.PRODUCT_VIEWED}"></i>조회</span><span><i style="background:${COLOR.CART_ADDED}"></i>담기</span><span><i style="background:${COLOR.ORDER_COMPLETED}"></i>주문</span></div></div>
+          ${ev.length?areaChart(bk):'<div class="empty">아직 데이터가 없어요 — 고객 페이지에서 상품을 클릭·담기·주문해 보세요</div>'}</div>
+        <div class="card"><div class="hd"><b>이벤트 구성</b><span>토픽별 비중</span></div>
+          <div class="donutwrap">${donut(v,c,o)}
+            <div class="donutlgd">
+              <div class="r"><i style="background:${COLOR.PRODUCT_VIEWED}"></i>product-viewed<b class="num">${v}</b></div>
+              <div class="r"><i style="background:${COLOR.CART_ADDED}"></i>cart-added<b class="num">${c}</b></div>
+              <div class="r"><i style="background:${COLOR.ORDER_COMPLETED}"></i>order-completed<b class="num">${o}</b></div>
+            </div></div>
+          <div style="margin-top:14px">
+            <div class="fstep"><div class="fl"><span>조회</span><b class="num">${v}</b></div><div class="trk"><div class="fill" style="width:100%;background:#DBEAFE"></div></div></div>
+            <div class="fstep"><div class="fl"><span>담기</span><b class="num">${c}</b></div><div class="trk"><div class="fill" style="width:${v?Math.max(c/v*100,2):0}%;background:#FDE68A"></div></div></div>
+            <div class="fstep"><div class="fl"><span>주문</span><b class="num">${o}</b></div><div class="trk"><div class="fill" style="width:${v?Math.max(o/v*100,2):0}%;background:#A7F3D0"></div></div></div>
+          </div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="hd"><b>조회 상위 상품</b><span>PRODUCT_VIEWED 기준</span></div>
+          ${tops.length?tops.map((t,i)=>`<div class="toprow"><span class="rank">${i+1}</span>
+            ${t.img?`<img src="${t.img}" loading="lazy" onerror="this.remove()">`:''}
+            <span class="nm">${t.name}</span><span class="cnt num">${t.cnt}<small> 회</small></span></div>`).join('')
+            :'<div class="empty">조회 기록 없음</div>'}</div>
+        <div class="card"><div class="hd"><b>카테고리별 이벤트</b><span>전체 토픽 합산</span></div>
+          ${cats.length?cats.map(([k,cnt])=>`<div class="bar"><span class="lbl">${k}</span>
+            <div class="trk"><div class="fill" style="width:${Math.round(cnt/cmx*100)}%"></div></div><b class="num">${cnt}</b></div>`).join('')
+            :'<div class="empty">데이터 없음</div>'}</div>
+      </div>
+      <div class="footnote">실서비스에서는 recommendation-service 가 behavior_log · reco_click 을 집계해 <code>GET /recommendation-service/metrics</code> 로 제공한다.
+      추천 클릭률(reco_click ÷ 노출)·챗봇 폴백률(usedFallback 비율)·추천 API 응답시간이 추가된다 — FR-12 · 핵심 10번 측정 문서화의 데이터 원천.</div>`;
+  }
+
+  if(TAB==='log'){
+    w.innerHTML=`<div class="card" style="padding:0">
+      <div style="max-height:560px;overflow:auto">
+      <table><thead><tr><th style="width:86px">시간</th><th style="width:176px">토픽</th><th style="width:66px">회원</th><th>상품</th><th>payload</th></tr></thead>
+      <tbody>${ev.length?ev.slice().reverse().map(b=>`<tr class="${b.demo?'demo':''}">
+        <td class="tm num">${new Date(b.at).toLocaleTimeString()}</td>
+        <td><span class="topic ${TCLS[b.type]}">${TOPIC[b.type]}</span>${b.demo?'<span class="demotag">예시</span>':''}</td>
+        <td class="num">#1</td>
+        <td><div class="prodcell">${b.img?`<img src="${b.img}" loading="lazy" onerror="this.remove()">`:''}<span>${b.name||('상품 '+b.productId)}</span></div></td>
+        <td class="payload">{ memberId: <em>1</em>, productId: <em>${b.productId}</em>, category: "${b.cat}"${b.qty?`, qty: <em>${b.qty}</em>`:''}${b.payment?`, payment: "${b.payment}"`:''} }</td>
+      </tr>`).join(''):'<tr><td colspan="5"><div class="empty">이벤트가 없어요 — 고객 페이지에서 상품을 클릭·담기·주문하면 여기 쌓입니다</div></td></tr>'}</tbody></table></div></div>
+      <div class="footnote">payload 는 <code>docs/avro/</code> 스키마 3종과 같은 구조 (키 memberId · 파티션 3 · 컨슈머 그룹 reco-service).
+      회색 행은 형태 예시 — 우측 상단 버튼으로 지울 수 있다. 발행 구현은 도현님(commerce), 구독·적재는 경민님(recommendation) 담당.</div>`;
+  }
+}
+render();
+window.addEventListener('storage', render);
+setInterval(render, 3000);
+</script>
+</body>
+</html>
