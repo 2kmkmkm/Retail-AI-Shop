@@ -58,9 +58,16 @@ export const payOrder = (orderId, body) =>
 export const fetchOrders = (memberId) =>
   tryApi(() => api.get('/commerce-service/orders', { params: { memberId } }), () => mock.fetchOrders())
 
-// 조회 행동 이벤트 수신 엔드포인트 — API 명세 확정 전이라 실패해도 조용히 로컬 기록만 남긴다.
-export const postBehavior = (body) =>
-  api.post('/commerce-service/behaviors', body).catch(() => {})
+// 조회 행동 이벤트 전송 (POST /commerce-service/behaviors — PR #12 계약).
+// 담기·주문 이벤트는 장바구니·결제 API 처리 중 백엔드가 직접 발행하므로 보내지 않는다.
+export const postBehavior = (ev) =>
+  api.post('/commerce-service/behaviors', {
+    memberId: ev.memberId,
+    productId: ev.productId,
+    eventType: ev.type,
+    category: ev.cat,
+    occurredAt: ev.at,
+  }).catch(() => {})
 
 /* ── recommendation-service ── */
 export const savePreferences = (body) =>

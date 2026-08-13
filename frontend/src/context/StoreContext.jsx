@@ -27,7 +27,7 @@ export function StoreProvider({ children }) {
   // 행동 이벤트: 백엔드 전송 시도 + 로컬 기록(관리자 화면 폴백)
   const emit = useCallback((type, product, extra = {}) => {
     const ev = recordEvent(type, product, extra, member?.memberId || 1)
-    api.postBehavior(ev)
+    if (type === 'PRODUCT_VIEWED') api.postBehavior(ev)
   }, [member])
 
   const addCart = useCallback((product, qty = 1) => {
