@@ -75,18 +75,21 @@ docker compose -f docker-compose-ms.yml up -d
 
 ## 6. 협업 규칙
 
-- `main` 직접 push 금지 — PR 머지로만. 셀프 머지 금지(1인 승인).
+- 브랜치 전략: `feature/*` → **`develop`** 으로 PR 머지(1인 승인, 셀프 머지 금지).
+  `main` 은 시연·제출 시점에 develop 을 머지하는 안정 브랜치 — 직접 push 금지.
 - 브랜치: `<type>/<서비스>-<기능>` — 예: `feat/reco-kafka-consumer`, `chore/product-init`
 - 커밋: `<type>: <설명>` — feat / fix / refactor / chore / docs / test
 - 금지: `.env`·LLM API 키 커밋 (키는 Config Server), `--force`
 
-## 7. 팀
+## 7. 팀 (A안 — 1인 1서비스)
 
-| 역할 | 담당 | 진행 브랜치 |
-|---|---|---|
-| PM · 프론트 · 산출물 | 백준하 | docs |
-| 인프라 | (확정 중) | feature/infra-eureka · infra-gateway · infra-config |
-| 백엔드 | (확정 중) | |
-| 백엔드 (추천/AI) | (확정 중) | |
+| 역할 | 담당 |
+|---|---|
+| PM · 프론트 · 산출물 | 백준하 |
+| 부팀장 · 인프라 + `product-service` | 김지현 |
+| `commerce-service` (회원·주문·결제·이벤트 발행) | 이경민 |
+| `recommendation-service` (추천·챗봇/AI) | 김도현 |
+
+인프라(Eureka·Gateway·Config·compose)는 김지현 님이 D1~D2 선행 구축, 이후 product-service 담당.
 
 기획서·프로토타입(동작 데모)·산출물은 팀 공유 폴더 참고.
