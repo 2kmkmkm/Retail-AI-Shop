@@ -87,8 +87,8 @@ docker compose -f docker-compose-ms.yml up -d
 |---|---|
 | PM · 프론트 · 산출물 | 백준하 |
 | 부팀장 · 인프라 + `product-service` | 김지현 |
-| `commerce-service` (회원·주문·결제·이벤트 발행) | 이경민 |
-| `recommendation-service` (추천·챗봇/AI) | 김도현 |
+| `commerce-service` (회원·주문·결제·이벤트 발행) | 김도현 |
+| `recommendation-service` (추천·챗봇/AI) | 이경민 |
 
 인프라(Eureka·Gateway·Config·compose)는 김지현 님이 D1~D2 선행 구축, 이후 product-service 담당.
 
