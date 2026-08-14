@@ -26,6 +26,9 @@ public class Product {
     @Column(name = "price", nullable = false)
     private Integer price;
 
+    @Column(name = "image_url", length = 255)
+    private String imageUrl;
+
     @Column(name = "stock", nullable = false)
     private Integer stock = 0;
 
@@ -116,6 +119,14 @@ public class Product {
 
     public void setPrice(Integer price) {
         this.price = price;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public Integer getStock() {
