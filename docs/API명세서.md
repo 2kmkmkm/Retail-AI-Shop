@@ -20,8 +20,12 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 |---|---|---|
 | GET | `/product-service/products` | 목록 — category·sweetenerExclude·sugarMax·q·sort 필터 |
 | GET | `/product-service/products/{id}` | 상세 |
+| POST | `/product-service/products` | 상품 등록 (관리자 화면) — 핵심 7 CRUD |
+| PUT | `/product-service/products/{id}` | 상품 수정 — 가격·재고 등 (관리자 화면) |
+| DELETE | `/product-service/products/{id}` | 상품 삭제 (관리자 화면) |
 | GET | `/product-service/products/compare?ids=1,2,3` | 영양성분 비교 (개수 제한 없음) |
 | PUT | `/product-service/products/{id}/stock/deduct` | **내부 전용** — commerce 가 OpenFeign 으로 호출. Gateway 비노출. 재고 부족 시 409 |
+| PUT | `/product-service/products/{id}/stock/restore` | **내부 전용** — 주문 취소·결제 실패 롤백 시 재고 복구 |
 
 ## commerce-service
 
@@ -29,11 +33,15 @@ Gateway 라우팅은 수업 관례와 동일한 서비스명 프리픽스 방식
 |---|---|---|
 | POST | `/commerce-service/members` | 회원가입 |
 | POST | `/commerce-service/members/login` | 로그인 — memberId 반환 (JWT 는 MP1 코드 재사용 시 선택) |
+| POST | `/commerce-service/behaviors` | 행동 이벤트 수신(조회) — Kafka 발행. 담기·주문 이벤트는 해당 API 처리 중 직접 발행 |
+| PUT | `/commerce-service/carts/{cartItemId}` | 장바구니 수량 변경 |
+| DELETE | `/commerce-service/carts/{cartItemId}` | 장바구니 항목 삭제 |
 | GET | `/commerce-service/members/{id}` | 회원 조회 |
 | GET | `/commerce-service/carts/{memberId}` | 장바구니 |
 | POST | `/commerce-service/carts` | 담기 → `cart-added` 발행 (가중치 0, 기록용) |
 | POST | `/commerce-service/orders` | 주문 생성 — 상태 **PENDING**, 재고 차감 없음 |
 | POST | `/commerce-service/orders/{orderId}/pay` | 모의 결제 승인 → **PAID** + 재고 차감(OpenFeign) + `order-completed` 품목별 발행. 차감 실패 시 CANCELLED + 409 |
+| POST | `/commerce-service/orders/{orderId}/cancel` | 주문 취소 — PAID 취소 시 재고 복구 (핵심 7 주문 CRUD) |
 | GET | `/commerce-service/orders?memberId=` | 주문 내역 |
 
 ## recommendation-service
