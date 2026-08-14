@@ -88,9 +88,18 @@ public class PreferenceService {
     }
 
     // 선호도 조회
+    // 선호도 조회 (미등록 회원은 기본값 200 OK 반환)
     public PreferenceResponse getPreference(Long memberId) {
         Preference preference = preferenceRepository.findById(memberId)
-                .orElseThrow(() -> new NoSuchElementException("해당 회원의 선호도 정보가 존재하지 않습니다: " + memberId));
+                .orElseGet(() -> Preference.builder()
+                        .memberId(memberId)
+                        .priceMin(0)
+                        .priceMax(100000)
+                        .categories(new ArrayList<>())
+                        .excludedSweeteners(new ArrayList<>())
+                        .allergens(new ArrayList<>())
+                        .build());
+
         return PreferenceResponse.from(preference);
     }
 }
