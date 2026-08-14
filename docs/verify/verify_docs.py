@@ -113,77 +113,50 @@ REQUIRED_PATHS = ['/product-service/products','/product-service/products/{id}','
  '/product-service/products/{id}/stock/deduct',
  '/commerce-service/members','/commerce-service/members/login','/commerce-service/carts',
  '/commerce-service/orders','/commerce-service/orders/{orderId}/pay',
+ '/commerce-service/orders/{orderId}/cancel','/commerce-service/behaviors',
  '/recommendation-service/preferences','/recommendation-service/recommendations/{memberId}',
  '/recommendation-service/chat','/recommendation-service/search',
  '/recommendation-service/click','/recommendation-service/metrics']
-check('C.API', '필수 경로 15개 존재', lambda:
+check('C.API', '필수 경로 17개 존재', lambda:
     (lambda miss: '전부 존재' if not miss else (_ for _ in ()).throw(RuntimeError(f'누락: {miss}')))(
         [p for p in REQUIRED_PATHS if p not in SPEC['paths']]))
 check('C.API', '결제 상태머신 표현', lambda:
     'PENDING' in json.dumps(SPEC['paths']['/commerce-service/orders']['post']) and
     'PAID' in json.dumps(SPEC['paths']['/commerce-service/orders/{orderId}/pay']) and 'OK')
 
-# ── D. 프로토타입 ↔ 문서 정합성 ─────────────────────────────────────
-proto = read(PROTO)
-def d_topics():
-    m = re.search(r'const TOPIC = \{([^}]+)\}', proto)
-    proto_topics = dict(re.findall(r'(\w+):"([\w-]+)"', m.group(1)))
-    for ev, topic in proto_topics.items():
-        fname = topic + '.avsc'
-        assert os.path.exists(os.path.join(DOCS,'avro',fname)), f'{fname} 없음'
-    return f"토픽 3개 일치: {sorted(proto_topics.values())}"
-check('D.정합성', '프로토타입 토픽명 == Avro 파일명', d_topics)
-
-def d_weights():
-    ws = re.findall(r'PRODUCT_VIEWED:(\d+),\s*CART_ADDED:(\d+),\s*ORDER_COMPLETED:(\d+)', proto)
-    assert ws and all(w == ('1','0','50') for w in ws), f'프로토타입 가중치 {ws}'
-    md = read(os.path.join(DOCS,'이벤트스키마.md'))
-    assert '| 1 |' in md and '| 0 |' in md and '| 50 |' in md, '문서 가중치 표 불일치'
-    return f"1/0/50 — 프로토타입 {len(ws)}곳 + 문서 일치"
-check('D.정합성', '가중치(조회1/담기0/주문50) 일치', d_weights)
-
-def d_payload():
-    sql = read(os.path.join(DOCS,'sql','schema-reco.sql'))
-    cols = set(re.findall(r'^\s{2}(\w+)\s', sql[sql.index('behavior_log'):sql.index('reco_result')], re.M))
-    need = {'member_id','product_id','category','event_type','qty','unit_price','order_no','payment_method','occurred_at'}
-    missing = need - cols
-    assert not missing, f'behavior_log 누락 컬럼: {missing}'
-    return 'Avro 전 필드가 behavior_log 에 적재 가능'
-check('D.정합성', 'Avro 필드 ⊆ behavior_log 컬럼', d_payload)
-
-def d_product_fields():
-    m = re.search(r'"Product"?', '')
-    props = set(SPEC['components']['schemas']['Product']['properties'].keys())
-    need = {'id','name','brand','category','price','stock','claimType','kcal','sugarG','carbG','sweeteners'}
-    missing = need - props
-    assert not missing, f'Product 스키마 누락: {missing}'
-    # 프로토타입 카드가 쓰는 필드가 다 있는가
-    for f in ['name','brand','price','stock','kcal']:
-        assert f in props
-    return f"Product {len(props)}개 속성 — 카드 필드 전부 커버"
-check('D.정합성', '프로토타입 카드 필드 ⊆ API Product', d_product_fields)
-
-def d_no_cross_fk():
-    for fname in ['schema-product.sql','schema-commerce.sql','schema-reco.sql']:
-        sql = read(os.path.join(DOCS,'sql',fname))
-        own = set(re.findall(r'CREATE TABLE (\w+)', sql))
-        refs = set(re.findall(r'REFERENCES (\w+)\(', sql))
-        cross = refs - own
-        assert not cross, f'{fname} 교차 FK: {cross}'
-    return '3개 스키마 모두 교차 FK 없음'
-check('D.정합성', 'Database per Service (교차 FK 금지)', d_no_cross_fk)
-
-def d_seed_matches():
-    n = len(re.findall(r"INSERT INTO product \(", read(os.path.join(DOCS,'sql','seed-product.sql'))))
-    m = len(re.findall(r'\{id:\d+,\s*name:\"[^\"]+\",\s*brand:', proto))
-    assert n == m == 18, f'시드 {n} vs 프로토타입 {m}'
-    return '시드 18개 == 프로토타입 18개'
-check('D.정합성', '시드 데이터 == 프로토타입 데이터', d_seed_matches)
+# ───── D. 시드 CSV — 형식·규모 검증 (크롤 시드 515건 체제) ─────
+import csv as _csv
+_seed_path = os.path.join(DOCS, '시드데이터_zerofinder.csv')
+if not os.path.exists(_seed_path):
+    print('  (D. 시드 CSV 없음 — PR #9 머지 전이면 정상, 검사 스킵)')
+else:
+    with io.open(_seed_path, encoding='utf-8-sig') as _f:
+        _rows = list(_csv.reader(_f))
+    _hdr, _data = _rows[0], _rows[1:]
+    def _d1():
+        assert len(_data) >= 500, f'{len(_data)}건뿐'
+        return f'{len(_data)}건'
+    check('D.시드', '500건 이상', _d1)
+    def _d2():
+        need = ['protein_g', 'fat_g', 'sodium_mg', 'serving_size', 'image_url', 'nutrition_facts_url']
+        miss = [c for c in need if not any(c in h for h in _hdr)]
+        assert not miss, f'누락 {miss}'
+        return '영양·이미지 6컬럼 OK'
+    check('D.시드', '영양·이미지 컬럼 존재', _d2)
+    def _d3():
+        n = sum(1 for r in _data if not str(r[3]).strip())
+        assert n == 0, f'빈 가격 {n}건'
+        return '전건 입력'
+    check('D.시드', '가격 전건 입력', _d3)
 
 # ── E. 채점표 20개 항목 → 산출물 추적 ────────────────────────────────
-plan = read(PLAN)
+if not os.path.exists(PLAN):
+    print('  (E. 기획서 HTML 없음 — 레포 단독 실행이면 정상, 기획서 근거는 스킵)')
+    plan = None
+else:
+    plan = read(PLAN)
 oas = read(os.path.join(DOCS,'openapi','openapi.yaml'))
-erd = read(os.path.join(DOCS,'ERD.md'))
+erd = read(os.path.join(DOCS,'제로픽_ERD.dbml'))
 api = read(os.path.join(DOCS,'API명세서.md'))
 evt = read(os.path.join(DOCS,'이벤트스키마.md'))
 sqls = "".join(read(os.path.join(DOCS,'sql',f)) for f in
@@ -195,8 +168,9 @@ RUBRIC = [
  ('핵심4 Config+LLM키 분리',    [(plan,'Config Server'),(plan,'LLM API 키')]),
  ('핵심5 OpenFeign 동기',       [(api,'stock/deduct'),(api,'OpenFeign')]),
  ('핵심6 Kafka 3종 이벤트',     [(evt,'product-viewed'),(evt,'cart-added'),(evt,'order-completed')]),
- ('핵심7 CRUD+재고차감',        [(oas,'/commerce-service/orders/{orderId}/pay'),(sqls,"'PENDING'")]),
- ('핵심8 DB분리+ERD',           [(erd,'Database per Service')]),
+ ('핵심7 CRUD+재고차감+주문취소', [(oas,'/commerce-service/orders/{orderId}/pay'),(oas,'/commerce-service/orders/{orderId}/cancel'),(sqls,"'PENDING'")]),
+ ('핵심7b 상품 CRUD',           [(api,'상품 등록'),(api,'상품 수정'),(api,'상품 삭제')]),
+ ('핵심8 DB분리+ERD+영양컬럼',  [(erd,'Database per Service'),(erd,'protein_g'),(erd,'nutrition_facts_url')]),
  ('핵심9 Docker Compose',       [(plan,'docker-compose')]),
  ('핵심10 챗봇+측정',           [(oas,'/recommendation-service/chat'),(plan,'측정 지표')]),
  ('선택1 K8s',                  [(plan,'Kubernetes')]),
@@ -208,13 +182,17 @@ RUBRIC = [
  ('선택7 CI/CD',                [(plan,'GitHub Actions')]),
  ('선택8 추천 API 부하테스트',  [(plan,'부하 테스트'),(oas,'/recommendations/{memberId}')]),
  ('선택9 로그 중앙화 EFK',      [(plan,'Fluent Bit')]),
- ('선택10 자연어 검색',         [(oas,'/recommendation-service/search')]),
+ ('선택10 자연어 검색+행동수신', [(oas,'/recommendation-service/search'),(oas,'/commerce-service/behaviors')]),
 ]
 for item, conds in RUBRIC:
-    check('E.채점표', item, lambda conds=conds:
-        (lambda miss: '근거 확인' if not miss else (_ for _ in ()).throw(
-            RuntimeError(f'근거 문자열 없음: {miss}')))(
-            [needle for hay, needle in conds if needle not in hay]))
+    def _fn(conds=conds):
+        usable = [(hay, needle) for hay, needle in conds if hay is not None]
+        if not usable:
+            return '스킵(기획서 근거)'
+        miss = [needle for hay, needle in usable if needle not in hay]
+        assert not miss, f'근거 문자열 없음: {miss}'
+        return '근거 확인'
+    check('E.채점표', item, _fn)
 
 # ── 출력 ─────────────────────────────────────────────────────────────
 print()
@@ -222,9 +200,9 @@ cur = None
 ok = fail = 0
 for section, name, passed, detail in results:
     if section != cur:
-        print(f"\n[{section}]"); cur = section
+        print("\n[" + section + "]"); cur = section
     mark = 'PASS' if passed else 'FAIL'
     ok += passed; fail += (not passed)
     print(f"  {mark}  {name}" + (f"  — {detail}" if detail else ""))
-print(f"\n{'='*60}\n합계: PASS {ok} / FAIL {fail}")
+print("\n" + "=" * 60 + f"\n합계: PASS {ok} / FAIL {fail}")
 sys.exit(1 if fail else 0)

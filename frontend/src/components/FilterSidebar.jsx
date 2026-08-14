@@ -42,7 +42,15 @@ export default function FilterSidebar({ filters, setFilters }) {
           <input type="number" value={filters.maxKcal} onChange={(e) => setFilters((f) => ({ ...f, maxKcal: e.target.value }))} />
         </div>
       </section>
-      <button className="resetb" onClick={() => { setFilters({ category: null, minKcal: 0, maxKcal: 999 }); setPrefs({ ...prefs, banSw: [] }) }}>
+      <section>
+        <h5>가격 (원)</h5>
+        <div className="rangein">
+          <input type="number" value={filters.minPrice} onChange={(e) => setFilters((f) => ({ ...f, minPrice: e.target.value }))} />
+          ~
+          <input type="number" value={filters.maxPrice} onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))} />
+        </div>
+      </section>
+      <button className="resetb" onClick={() => { setFilters({ category: null, minKcal: 0, maxKcal: 999, minPrice: 0, maxPrice: 999999 }); setPrefs({ ...prefs, banSw: [] }) }}>
         필터 초기화
       </button>
     </aside>

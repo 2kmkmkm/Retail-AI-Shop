@@ -69,6 +69,64 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Product'
+    post:
+      tags:
+      - product
+      summary: 상품 등록 (관리자) — 핵심 7 CRUD의 C
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &id001
+              type: object
+              required:
+              - name
+              - brand
+              - category
+              - price
+              - stock
+              properties:
+                name:
+                  type: string
+                brand:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: integer
+                stock:
+                  type: integer
+                claimType:
+                  type: string
+                kcal:
+                  type: number
+                sugarG:
+                  type: number
+                carbG:
+                  type: number
+                imageUrl:
+                  type: string
+                sweeteners:
+                  type: array
+                  items:
+                    type: string
+                  description: 감미료 마스터 15종의 이름
+                proteinG:
+                  type: number
+                fatG:
+                  type: number
+                sodiumMg:
+                  type: number
+                servingSize:
+                  type: number
+                servingUnit:
+                  type: string
+                nutritionFactsUrl:
+                  type: string
+                  description: 영양성분표 원본 이미지 URL
+      responses:
+        '201':
+          description: 등록 완료 — 생성된 상품 반환
   /product-service/products/{id}:
     get:
       tags:
@@ -90,6 +148,36 @@ paths:
                 $ref: '#/components/schemas/ProductDetail'
         '404':
           description: 없음
+    put:
+      tags:
+      - product
+      summary: 상품 수정 (관리자) — 가격·재고 등, 핵심 7 CRUD의 U
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id001
+      responses:
+        '200':
+          description: 수정 완료
+        '404':
+          description: 없는 상품
+    delete:
+      tags:
+      - product
+      summary: 상품 삭제 (관리자) — 핵심 7 CRUD의 D
+      responses:
+        '204':
+          description: 삭제 완료
+        '404':
+          description: 없는 상품
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   /product-service/products/compare:
     get:
       tags:
@@ -144,6 +232,37 @@ paths:
                 $ref: '#/components/schemas/Product'
         '409':
           description: 재고 부족
+  /product-service/products/{id}/stock/restore:
+    put:
+      tags:
+      - product
+      summary: 재고 복구 — 내부 전용(OpenFeign). 주문 취소·결제 실패 롤백 시 commerce-service 가 호출
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - qty
+              properties:
+                qty:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 복구 후 상품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
   /commerce-service/members:
     post:
       tags:
@@ -487,6 +606,101 @@ paths:
                     description: JWT 사용 시에만
         '401':
           description: 인증 실패
+  /commerce-service/behaviors:
+    post:
+      tags:
+      - commerce
+      summary: 행동 이벤트 수신 — 프론트의 상품 조회 등 행동을 받아 Kafka로 발행
+      description: 상세 조회(PRODUCT_VIEWED)는 프론트가 이 경로로 보낸다. 담기·주문 이벤트는 장바구니·결제 API 처리 중에 commerce-service가 직접 발행하므로
+        이 경로를 쓰지 않는다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - memberId
+              - productId
+              - eventType
+              - category
+              properties:
+                memberId:
+                  type: integer
+                  format: int64
+                productId:
+                  type: integer
+                  format: int64
+                eventType:
+                  type: string
+                  enum:
+                  - PRODUCT_VIEWED
+                category:
+                  type: string
+                  description: 이벤트 payload 비정규화용
+                occurredAt:
+                  type: string
+                  format: date-time
+      responses:
+        '202':
+          description: 수신 — Kafka 발행 큐잉
+  /commerce-service/orders/{orderId}/cancel:
+    post:
+      tags:
+      - commerce
+      summary: 주문 취소 — 핵심 7 주문 CRUD. PAID 취소 시 재고 복구(OpenFeign)
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 취소 완료 — 상태 CANCELLED, 결제됐던 주문은 재고 복구
+        '404':
+          description: 없는 주문
+        '409':
+          description: 취소 불가 상태 (이미 CANCELLED 등)
+  /commerce-service/carts/{cartItemId}:
+    parameters:
+    - name: cartItemId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      tags:
+      - commerce
+      summary: 장바구니 수량 변경 — FR-06 CRUD의 U
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - qty
+              properties:
+                qty:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 변경 완료
+        '404':
+          description: 없는 항목
+    delete:
+      tags:
+      - commerce
+      summary: 장바구니 항목 삭제 — FR-06 CRUD의 D
+      responses:
+        '204':
+          description: 삭제 완료
+        '404':
+          description: 없는 항목
 components:
   schemas:
     Product:
@@ -498,7 +712,6 @@ components:
       - category
       - price
       - stock
-      - claimType
       - kcal
       - sugarG
       - carbG
@@ -521,6 +734,8 @@ components:
           type: integer
         claimType:
           type: string
+          nullable: true
+          description: null = 표기 확인 안 됨 (시드 공란 54건)
           enum:
           - 무당류
           - 저당류
@@ -539,6 +754,29 @@ components:
           type: array
           items:
             type: string
+        proteinG:
+          type: number
+        fatG:
+          type: number
+        sodiumMg:
+          type: number
+        servingSize:
+          type: number
+        servingUnit:
+          type: string
+        nutritionFactsUrl:
+          type: string
+          description: 영양성분표 원본 이미지 URL
+        sweetenerAmounts:
+          type: array
+          description: 감미료 함량(g) — 상세 화면의 함량 칩 데이터
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              amountG:
+                type: number
     ProductDetail:
       allOf:
       - $ref: '#/components/schemas/Product'
