@@ -29,7 +29,6 @@ import java.util.Map;
 public class SeedLoader implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(SeedLoader.class);
-    private static final String DEFAULT_CLAIM_TYPE = "무첨가당";
 
     private final ProductRepository productRepository;
     private final SweetenerRepository sweetenerRepository;
@@ -85,10 +84,8 @@ public class SeedLoader implements ApplicationRunner {
                         continue;
                     }
 
-                    String claimType = record.get("claim_type");
-                    if (claimType == null || claimType.isBlank()) {
-                        claimType = DEFAULT_CLAIM_TYPE;
-                    }
+                    // 표기가 확인되지 않은 상품은 null 로 둔다 (schema-product.sql: NULL 허용)
+                    String claimType = emptyToNull(record.get("claim_type"));
 
                     Product product = new Product(
                             record.get("name"),
