@@ -712,7 +712,6 @@ components:
       - category
       - price
       - stock
-      - claimType
       - kcal
       - sugarG
       - carbG
@@ -735,6 +734,8 @@ components:
           type: integer
         claimType:
           type: string
+          nullable: true
+          description: null = 표기 확인 안 됨 (시드 공란 54건)
           enum:
           - 무당류
           - 저당류
