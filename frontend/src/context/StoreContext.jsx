@@ -39,7 +39,7 @@ export function StoreProvider({ children }) {
 
   const setPrefs = useCallback(async (next) => {
     setPrefsState(next)
-    if (member) await api.savePreferences({ memberId: member.memberId, ...next })
+    if (member) await api.savePreferences(member.memberId, next)
   }, [member])
 
   const toggleCompare = useCallback((id) => {
