@@ -120,8 +120,9 @@ export const fetchRecommendations = (memberId) =>
     () => mock.recommend(store.getProducts()))
 
 // 백엔드 ChatResponse(answer + RecoItem[])를 위젯 모델(reply + 상품 카드)로 변환한다.
+// LLM 왕복(평균 3.3초, p95 6초)이 기본 타임아웃(4초)을 넘을 수 있어 챗봇만 넉넉히 잡는다
 export const chat = (body) =>
-  tryApi(() => api.post('/recommendation-service/chat', body),
+  tryApi(() => api.post('/recommendation-service/chat', body, { timeout: 25000 }),
     () => mock.chat(store.getProducts(), body.message))
     .then((res) => {
       if (!res || res.answer === undefined) return res
@@ -167,7 +168,7 @@ export const postRecoClick = (body) =>
 // 자연어 상품 검색 (선택 10) — 조건 추출 후 상품 반환. 폴백은 챗봇과 같은 규칙 파서.
 // 계약(openapi)의 요청 필드는 query, 응답은 { extracted, products: Product[] } 이다.
 export const nlSearch = (message) =>
-  tryApi(() => api.post('/recommendation-service/search', { query: message }),
+  tryApi(() => api.post('/recommendation-service/search', { query: message }, { timeout: 25000 }),
     () => mock.chat(store.getProducts(), message))
     .then((res) => {
       if (!res || res.extracted === undefined) return res
