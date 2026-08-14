@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/preferences")
+@RequestMapping("/recommendation-service/preferences")
 @RequiredArgsConstructor
 public class PreferenceController {
 
