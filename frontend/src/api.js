@@ -2,7 +2,7 @@ import axios from 'axios'
 import { seedProducts } from './data/seed.js'
 import * as store from './utils/productStore.js'
 import * as mock from './utils/mock.js'
-import { toViewProduct, toViewProducts, toApiProduct } from './utils/normalize.js'
+import { toViewProduct, toViewProducts, toApiProduct, toApiPreference } from './utils/normalize.js'
 
 // 챗봇 카드가 상품명·가격을 그려야 해서, 목록 응답을 id → {name, price} 로 캐시해 둔다.
 const productCache = new Map()
@@ -112,8 +112,8 @@ export const postBehavior = (ev) =>
   }).catch(() => {})
 
 /* ── recommendation-service ── */
-export const savePreferences = (body) =>
-  tryApi(() => api.post('/recommendation-service/preferences', body), () => body)
+export const savePreferences = (memberId, prefs) =>
+  tryApi(() => api.post('/recommendation-service/preferences', toApiPreference(memberId, prefs)), () => prefs)
 
 export const fetchRecommendations = (memberId) =>
   tryApi(() => api.get(`/recommendation-service/recommendations/${memberId}`),
