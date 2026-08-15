@@ -17,7 +17,7 @@ export default function Shop() {
   const { prefs, member } = useStore()
   const [params] = useSearchParams()
   const q = params.get('q') || ''
-  const [filters, setFilters] = useState({ category: null, minKcal: 0, maxKcal: 999 })
+  const [filters, setFilters] = useState({ category: null, minKcal: 0, maxKcal: 999, minPrice: 0, maxPrice: 999999 })
   const [sort, setSort] = useState('reco')
   const [products, setProducts] = useState(getProducts)
   const [detail, setDetail] = useState(() => {
@@ -79,14 +79,19 @@ export default function Shop() {
     return new Set(ids.slice(0, 8).map(([id]) => id))
   }, [scored])
 
+  // 가격 필터 — 상품 목록 계약(GET /products)에 가격 파라미터가 없어 클라이언트에서 거른다
+  const priced = useMemo(() => products.filter((p) =>
+    p.price >= (Number(filters.minPrice) || 0) && p.price <= (Number(filters.maxPrice) || 999999)
+  ), [products, filters.minPrice, filters.maxPrice])
+
   const sorted = useMemo(() => {
-    const r = [...products]
+    const r = [...priced]
     if (sort === 'reco') r.sort((a, b) => (scored.get(a.id)?.rank ?? 1e9) - (scored.get(b.id)?.rank ?? 1e9))
     if (sort === 'priceAsc') r.sort((a, b) => a.price - b.price)
     if (sort === 'priceDesc') r.sort((a, b) => b.price - a.price)
     if (sort === 'kcal') r.sort((a, b) => a.kcal - b.kcal)
     return r
-  }, [products, sort, scored])
+  }, [priced, sort, scored])
 
   return (
     <div className="wrap">

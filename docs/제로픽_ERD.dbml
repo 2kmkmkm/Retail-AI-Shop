@@ -12,7 +12,7 @@ Table product {
   price int [not null, note: 'CHECK >= 0']
   image_url varchar(255)
   stock int [not null, default: 0, note: 'CHECK >= 0 — 초과주문 DB 차단']
-  claim_type varchar(20) [not null, note: '무당류/저당류/무첨가당']
+  claim_type varchar(20) [note: '무당류/저당류/무첨가당 — NULL = 표기 확인 안 됨']
   kcal decimal(7,1) [not null]
   sugar_g decimal(6,2) [not null]
   carb_g decimal(6,2) [not null]

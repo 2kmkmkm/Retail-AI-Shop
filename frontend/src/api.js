@@ -2,7 +2,7 @@ import axios from 'axios'
 import { seedProducts } from './data/seed.js'
 import * as store from './utils/productStore.js'
 import * as mock from './utils/mock.js'
-import { toViewProduct, toViewProducts, toApiProduct } from './utils/normalize.js'
+import { toViewProduct, toViewProducts, toApiProduct, toApiPreference } from './utils/normalize.js'
 
 // 챗봇 카드가 상품명·가격을 그려야 해서, 목록 응답을 id → {name, price} 로 캐시해 둔다.
 const productCache = new Map()
@@ -118,16 +118,17 @@ export const postBehavior = (ev) =>
   }).catch(() => {})
 
 /* ── recommendation-service ── */
-export const savePreferences = (body) =>
-  tryApi(() => api.post('/recommendation-service/preferences', body), () => body)
+export const savePreferences = (memberId, prefs) =>
+  tryApi(() => api.post('/recommendation-service/preferences', toApiPreference(memberId, prefs)), () => prefs)
 
 export const fetchRecommendations = (memberId) =>
   tryApi(() => api.get(`/recommendation-service/recommendations/${memberId}`),
     () => mock.recommend(store.getProducts()))
 
 // 백엔드 ChatResponse(answer + RecoItem[])를 위젯 모델(reply + 상품 카드)로 변환한다.
+// LLM 왕복(평균 3.3초, p95 6초)이 기본 타임아웃(4초)을 넘을 수 있어 챗봇만 넉넉히 잡는다
 export const chat = (body) =>
-  tryApi(() => api.post('/recommendation-service/chat', body),
+  tryApi(() => api.post('/recommendation-service/chat', body, { timeout: 25000 }),
     () => mock.chat(store.getProducts(), body.message))
     .then((res) => {
       if (!res || res.answer === undefined) return res
@@ -173,7 +174,7 @@ export const postRecoClick = (body) =>
 // 자연어 상품 검색 (선택 10) — 조건 추출 후 상품 반환. 폴백은 챗봇과 같은 규칙 파서.
 // 계약(openapi)의 요청 필드는 query, 응답은 { extracted, products: Product[] } 이다.
 export const nlSearch = (message) =>
-  tryApi(() => api.post('/recommendation-service/search', { query: message }),
+  tryApi(() => api.post('/recommendation-service/search', { query: message }, { timeout: 25000 }),
     () => mock.chat(store.getProducts(), message))
     .then((res) => {
       if (!res || res.extracted === undefined) return res
