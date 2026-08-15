@@ -48,3 +48,28 @@ export function toApiProduct(p) {
     sweeteners: p.sw || p.sweeteners || [],
   }
 }
+
+// 화면 선호조건(banSw·banAllergen·cats) → 계약 Preference(excludedSweeteners·allergens·categories).
+// 필드명이 다른 채로 보내면 201 로 성공하면서 조건만 빈 배열로 저장된다.
+export function toApiPreference(memberId, prefs) {
+  return {
+    memberId,
+    priceMin: Number(prefs.priceMin) || 0,
+    priceMax: Number(prefs.priceMax) || 100000,
+    categories: prefs.cats || [],
+    excludedSweeteners: prefs.banSw || [],
+    allergens: prefs.banAllergen || [],
+  }
+}
+
+// 계약 Preference → 화면 선호조건 (온보딩 시 서버 저장분 복원)
+export function toViewPreference(raw) {
+  if (!raw) return null
+  return {
+    banSw: raw.excludedSweeteners || [],
+    banAllergen: raw.allergens || [],
+    cats: raw.categories || [],
+    priceMin: raw.priceMin ?? 0,
+    priceMax: raw.priceMax ?? 100000,
+  }
+}
