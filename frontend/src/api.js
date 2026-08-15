@@ -22,6 +22,12 @@ const api = axios.create({
   timeout: 4000,
 })
 
+api.interceptors.request.use((config) => {
+  const member = JSON.parse(sessionStorage.getItem('zp_member') || 'null')
+  if (member?.token) config.headers.Authorization = `Bearer ${member.token}`
+  return config
+})
+
 // 백엔드가 아직 안 떠 있으면 시드 데이터로 폴백한다.
 // 어떤 호출이든 한 번 실패하면 mockMode 로 표시해 화면에 배너를 띄운다.
 let mockMode = false

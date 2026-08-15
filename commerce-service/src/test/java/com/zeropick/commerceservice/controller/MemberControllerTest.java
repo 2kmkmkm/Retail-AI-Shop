@@ -3,6 +3,8 @@ package com.zeropick.commerceservice.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeropick.commerceservice.entity.Member;
 import com.zeropick.commerceservice.repository.MemberRepository;
+import com.zeropick.commerceservice.security.JwtTokenProvider;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,9 @@ class MemberControllerTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
     void setUp() {
@@ -120,13 +125,25 @@ class MemberControllerTest {
                 "password", "correct-password"
         );
 
-        mockMvc.perform(post("/commerce-service/members/login")
+        String responseBody = mockMvc.perform(post("/commerce-service/members/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.name").value("제로픽"))
-                .andExpect(jsonPath("$.password").doesNotExist());
+                .andExpect(jsonPath("$.token").isString())
+                .andExpect(jsonPath("$.expiresIn").value(3600))
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String token = objectMapper.readTree(responseBody).path("token").asText();
+        Claims claims = jwtTokenProvider.parseClaims(token);
+        assertThat(claims.getSubject()).isEqualTo(member.getId().toString());
+        assertThat(((Number) claims.get("memberId")).longValue()).isEqualTo(member.getId());
+        assertThat(claims.get("name", String.class)).isEqualTo("제로픽");
+        assertThat(claims.getExpiration()).isAfter(claims.getIssuedAt());
     }
 
     @Test

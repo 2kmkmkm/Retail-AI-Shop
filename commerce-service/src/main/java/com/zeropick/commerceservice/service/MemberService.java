@@ -8,6 +8,7 @@ import com.zeropick.commerceservice.entity.Member;
 import com.zeropick.commerceservice.exception.DuplicateEmailException;
 import com.zeropick.commerceservice.exception.InvalidCredentialsException;
 import com.zeropick.commerceservice.repository.MemberRepository;
+import com.zeropick.commerceservice.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +23,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
     public MemberResponse create(MemberCreateRequest request) {
@@ -53,6 +55,7 @@ public class MemberService {
             throw new InvalidCredentialsException();
         }
 
-        return MemberLoginResponse.from(member);
+        String token = jwtTokenProvider.createToken(member);
+        return MemberLoginResponse.from(member, token, jwtTokenProvider.getExpirationSeconds());
     }
 }

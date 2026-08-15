@@ -15,10 +15,9 @@ export default function AuthModal({ mode, setMode, onClose }) {
       return
     }
     try {
-      const res = join
-        ? await api.join(form)
-        : await api.login({ email: form.email, password: form.password })
-      setMember({ memberId: res.memberId, name: res.name })
+      if (join) await api.join(form)
+      const res = await api.login({ email: form.email, password: form.password })
+      setMember({ memberId: res.memberId, name: res.name, token: res.token })
       showToast(join ? `✅ 가입 완료 — ${res.name}님 환영해요` : `✅ ${res.name}님 로그인`)
       onClose()
     } catch (e) {
