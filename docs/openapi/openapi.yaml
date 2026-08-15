@@ -572,8 +572,8 @@ paths:
     post:
       tags:
       - commerce
-      summary: 로그인 — 이메일·비밀번호 검증 후 회원 정보 반환
-      description: 본격적인 인증(JWT)은 RTL-M 채점 범위 외. 세션 식별용 memberId 반환까지가 기본 범위이며, MP1 의 JWT 코드를 재사용할 경우 token 필드를 채운다.
+      summary: 로그인 — 이메일·비밀번호 검증 후 JWT 발급
+      description: 인증 성공 시 세션 식별용 memberId와 1시간 동안 유효한 HS256 JWT 액세스 토큰을 반환한다.
       requestBody:
         required: true
         content:
@@ -595,6 +595,11 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                - memberId
+                - name
+                - token
+                - expiresIn
                 properties:
                   memberId:
                     type: integer
@@ -603,7 +608,12 @@ paths:
                     type: string
                   token:
                     type: string
-                    description: JWT 사용 시에만
+                    description: Bearer 인증에 사용할 JWT 액세스 토큰
+                  expiresIn:
+                    type: integer
+                    format: int64
+                    description: 토큰 유효 시간(초)
+                    example: 3600
         '401':
           description: 인증 실패
   /commerce-service/behaviors:
