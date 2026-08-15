@@ -1,9 +1,12 @@
 package com.zeropick.commerceservice.service;
 
 import com.zeropick.commerceservice.dto.MemberCreateRequest;
+import com.zeropick.commerceservice.dto.MemberLoginRequest;
+import com.zeropick.commerceservice.dto.MemberLoginResponse;
 import com.zeropick.commerceservice.dto.MemberResponse;
 import com.zeropick.commerceservice.entity.Member;
 import com.zeropick.commerceservice.exception.DuplicateEmailException;
+import com.zeropick.commerceservice.exception.InvalidCredentialsException;
 import com.zeropick.commerceservice.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,5 +41,18 @@ public class MemberService {
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateEmailException();
         }
+    }
+
+    @Transactional(readOnly = true)
+    public MemberLoginResponse login(MemberLoginRequest request) {
+        String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
+        Member member = memberRepository.findByEmail(normalizedEmail)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!passwordEncoder.matches(request.password(), member.getPassword())) {
+            throw new InvalidCredentialsException();
+        }
+
+        return MemberLoginResponse.from(member);
     }
 }

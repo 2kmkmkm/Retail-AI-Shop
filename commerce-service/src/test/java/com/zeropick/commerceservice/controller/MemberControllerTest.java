@@ -106,4 +106,60 @@ class MemberControllerTest {
                 .andExpect(jsonPath("$.errors.password").exists())
                 .andExpect(jsonPath("$.errors.name").exists());
     }
+
+    @Test
+    void logsInWithNormalizedEmailAndReturnsMemberId() throws Exception {
+        Member member = memberRepository.save(Member.builder()
+                .email("user@example.com")
+                .password(passwordEncoder.encode("correct-password"))
+                .name("제로픽")
+                .build());
+
+        Map<String, String> request = Map.of(
+                "email", "  USER@Example.com ",
+                "password", "correct-password"
+        );
+
+        mockMvc.perform(post("/commerce-service/members/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
+                .andExpect(jsonPath("$.name").value("제로픽"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+    }
+
+    @Test
+    void returnsUnauthorizedWhenPasswordDoesNotMatch() throws Exception {
+        memberRepository.save(Member.builder()
+                .email("user@example.com")
+                .password(passwordEncoder.encode("correct-password"))
+                .name("제로픽")
+                .build());
+
+        Map<String, String> request = Map.of(
+                "email", "user@example.com",
+                "password", "wrong-password"
+        );
+
+        mockMvc.perform(post("/commerce-service/members/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test
+    void returnsUnauthorizedWhenEmailDoesNotExist() throws Exception {
+        Map<String, String> request = Map.of(
+                "email", "missing@example.com",
+                "password", "any-password"
+        );
+
+        mockMvc.perform(post("/commerce-service/members/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
 }

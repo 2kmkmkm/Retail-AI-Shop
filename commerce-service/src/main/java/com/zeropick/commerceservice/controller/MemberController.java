@@ -1,6 +1,8 @@
 package com.zeropick.commerceservice.controller;
 
 import com.zeropick.commerceservice.dto.MemberCreateRequest;
+import com.zeropick.commerceservice.dto.MemberLoginRequest;
+import com.zeropick.commerceservice.dto.MemberLoginResponse;
 import com.zeropick.commerceservice.dto.MemberResponse;
 import com.zeropick.commerceservice.service.MemberService;
 import jakarta.validation.Valid;
@@ -23,5 +25,10 @@ public class MemberController {
     @ResponseStatus(HttpStatus.CREATED)
     public MemberResponse create(@Valid @RequestBody MemberCreateRequest request) {
         return memberService.create(request);
+    }
+
+    @PostMapping("/login")
+    public MemberLoginResponse login(@Valid @RequestBody MemberLoginRequest request) {
+        return memberService.login(request);
     }
 }
