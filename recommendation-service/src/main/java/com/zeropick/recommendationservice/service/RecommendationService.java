@@ -1,7 +1,10 @@
 package com.zeropick.recommendationservice.service;
 
+import com.zeropick.recommendationservice.client.ProductServiceClient;
+import com.zeropick.recommendationservice.client.dto.ProductResponse;
 import com.zeropick.recommendationservice.domain.BehaviorLog;
 import com.zeropick.recommendationservice.domain.RecoResult;
+import com.zeropick.recommendationservice.dto.RecoDetailResponse;
 import com.zeropick.recommendationservice.dto.RecoResponse;
 import com.zeropick.recommendationservice.repository.BehaviorLogRepository;
 import com.zeropick.recommendationservice.repository.RecoResultRepository;
@@ -22,6 +25,8 @@ public class RecommendationService {
 
     private final BehaviorLogRepository behaviorLogRepository;
     private final RecoResultRepository recoResultRepository;
+
+    private final ProductServiceClient productServiceClient;
 
     /**
      * 추천 점수 계산 및 reco_result 갱신 후 상위 TOP 3 반환
@@ -96,6 +101,44 @@ public class RecommendationService {
         // 6. DTO 변환 반환
         return saved.stream()
                 .map(RecoResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 추천 결과에 product-service의 상품 상세 정보를 결합하여 반환 (Enrichment)
+     */
+    public List<RecoDetailResponse> getDetailedRecommendations(Long memberId) {
+        // 1. 기존 추천 결과(점수/랭킹) 조회
+        List<RecoResult> recoResults = recoResultRepository.findByMemberIdOrderByRankNoAsc(memberId);
+        if (recoResults.isEmpty()) {
+            calculateAndGetRecommendations(memberId);
+            recoResults = recoResultRepository.findByMemberIdOrderByRankNoAsc(memberId);
+        }
+
+        if (recoResults.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 2. 추천 상품 ID 목록 추출
+        List<Long> productIds = recoResults.stream()
+                .map(RecoResult::getProductId)
+                .toList();
+
+        // 3. OpenFeign으로 product-service 다건 조회 호출
+        Map<Long, ProductResponse> productMap = new HashMap<>();
+        try {
+            List<ProductResponse> products = productServiceClient.getProductsByIds(productIds);
+            for (ProductResponse p : products) {
+                productMap.put(p.getId(), p);
+            }
+        } catch (Exception e) {
+            log.error("[Feign 실패] product-service 호출 실패: {}", e.getMessage());
+            // product-service 호출 실패 시에도 기본 점수 정보는 내려갈 수 있도록 fallback 처리
+        }
+
+        // 4. 상세 응답 매핑
+        return recoResults.stream()
+                .map(r -> RecoDetailResponse.of(r, productMap.get(r.getProductId())))
                 .collect(Collectors.toList());
     }
 }
