@@ -32,7 +32,7 @@ public class Product {
     @Column(name = "stock", nullable = false)
     private Integer stock = 0;
 
-    @Column(name = "claim_type", nullable = false, length = 20)
+    @Column(name = "claim_type", length = 20)  // NULL = 표기 확인 안 됨 (schema-product.sql)
     private String claimType;
 
     @Column(name = "kcal", nullable = false, precision = 7, scale = 1)
