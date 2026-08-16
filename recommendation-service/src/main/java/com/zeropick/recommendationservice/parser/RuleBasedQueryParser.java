@@ -23,7 +23,10 @@ public class RuleBasedQueryParser {
             "말티톨", "나한과", "사카린", "소르비톨"
     );
 
-    // 2. 카테고리 매핑 사전 (우선순위: 긴 복합어 및 세부 카테고리 -> 일반 포괄 카테고리)
+    // 2. 알레르기 마스터
+    private static final List<String> ALLERGENS = List.of("우유", "대두", "밀", "땅콩");
+
+    // 3. 카테고리 매핑 사전 (우선순위: 긴 복합어 및 세부 카테고리 -> 일반 포괄 카테고리)
     private static final Map<String, String> CATEGORY_MAP = new LinkedHashMap<>();
     static {
         // [1] 복합/특정 키워드 우선 매칭
@@ -69,11 +72,14 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("조미료", "조미료/소스");
     }
 
-    // 3. 당류/표시유형 추출 정규식
+    // 4. 당류/표시유형 추출 정규식
     private static final Pattern SUGAR_ZERO_PATTERN = Pattern.compile("(무당|무당류|제로|0g|당류\\s*0|무가당|무설탕|슈가프리)");
     private static final Pattern SUGAR_LOW_PATTERN = Pattern.compile("(저당|저당류)");
 
-    // 4. 금액 추출 정규식 ([천만] 단일 문자 대체 적용)
+    // 5. 칼로리 추출 정규식
+    private static final Pattern KCAL_PATTERN = Pattern.compile("(\\d+)\\s*(kcal|칼로리)\\s*(이하|미만)?", Pattern.CASE_INSENSITIVE);
+
+    // 6. 금액 추출 정규식
     private static final Pattern PRICE_PATTERN = Pattern.compile("(\\d+)([천만])?\\s*원?\\s*(이하|미만|까지)?");
 
     /**
@@ -91,18 +97,40 @@ public class RuleBasedQueryParser {
         for (String sweetener : SWEETENERS) {
             Pattern excludePattern = Pattern.compile(Pattern.quote(sweetener) + "[이가은는]?\\s*(없는|제외|빼고|안들어간|안 들어간|무)");
             Matcher matcher = excludePattern.matcher(remainingText);
+
             if (matcher.find()) {
                 sweetenerExclude = sweetener;
-                // 제외 감미료 표현을 제거하여 후속 키워드 매칭 시 오인식 방지
                 remainingText = remainingText.replace(matcher.group(), " ");
                 break;
             }
         }
 
-        // 2. 가격 상한(maxPrice) 추출
+        // 2. 알레르기 제외 성분(allergenExclude) 추출
+        String allergenExclude = null;
+        for (String allergen : ALLERGENS) {
+            Pattern allergenPattern = Pattern.compile(Pattern.quote(allergen) + "[이가은는]?\\s*(없는|제외|빼고|안들어간|안 들어간|무)");
+            Matcher matcher = allergenPattern.matcher(remainingText);
+            if (matcher.find()) {
+                allergenExclude = allergen;
+                remainingText = remainingText.replace(matcher.group(), " ");
+                break;
+            }
+        }
+
+        // 3. 칼로리 상한(kcalMax) 추출
+        BigDecimal kcalMax = null;
+        Matcher kcalMatcher = KCAL_PATTERN.matcher(remainingText);
+        if (kcalMatcher.find()) {
+            try {
+                kcalMax = new BigDecimal(kcalMatcher.group(1));
+                remainingText = remainingText.replace(kcalMatcher.group(), " ");
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // 4. 가격 상한(maxPrice) 추출
         Integer maxPrice = extractPrice(remainingText);
 
-        // 3. 당류 기준(sugarMax) 추출
+        // 5. 당류 기준(sugarMax) 추출
         BigDecimal sugarMax = null;
         if (SUGAR_ZERO_PATTERN.matcher(remainingText).find()) {
             sugarMax = BigDecimal.ZERO; // 0.0g (무당)
@@ -110,7 +138,7 @@ public class RuleBasedQueryParser {
             sugarMax = BigDecimal.valueOf(5.0); // 5.0g 이하 (저당)
         }
 
-        // 4. 카테고리 및 검색 키워드(query) 추출 (정리된 remainingText 기준으로 매칭)
+        // 6. 카테고리 및 검색 키워드(query) 추출
         String category = null;
         String query = null;
         for (Map.Entry<String, String> entry : CATEGORY_MAP.entrySet()) {
@@ -125,7 +153,10 @@ public class RuleBasedQueryParser {
         return SearchCondition.builder()
                 .category(category)
                 .sweetenerExclude(sweetenerExclude)
+                .allergenExclude(allergenExclude)
                 .sugarMax(sugarMax)
+                .kcalMin(null)
+                .kcalMax(kcalMax)
                 .maxPrice(maxPrice)
                 .query(query)
                 .build();
