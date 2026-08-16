@@ -13,27 +13,31 @@ import java.util.List;
 public interface ProductServiceClient {
 
     /**
-     * 상품 상세 단건 조회 (GET /products/{id})
+     * 상품 상세 단건 조회 (GET /product-service/products/{id})
      */
-    @GetMapping("/products/{id}")
+    @GetMapping("/product-service/products/{id}")
     ProductResponse getProductById(@PathVariable("id") Long id);
 
     /**
-     * 상품 다건/비교 조회 (GET /products/compare?ids=1,2,3)
+     * 상품 다건/비교 조회 (GET /product-service/products/compare?ids=1,2,3)
      * - 추천 결과나 챗봇 후보 상품들의 세부 정보(영양/감미료)를 한 번에 가져올 때 사용
      */
-    @GetMapping("/products/compare")
+    @GetMapping("/product-service/products/compare")
     List<ProductResponse> getProductsByIds(@RequestParam("ids") List<Long> ids);
 
     /**
-     * 전체/필터 상품 목록 조회 (GET /products)
+     * 전체/필터 상품 목록 조회 (GET /product-service/products)
      * - 챗봇/자연어 검색 후보군 추출 시 사용
      */
-    @GetMapping("/products")
+    @GetMapping("/product-service/products")
     List<ProductResponse> getProducts(
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "sweetenerExclude", required = false) String sweetenerExclude,
+            @RequestParam(value = "allergenExclude", required = false) String allergenExclude,
             @RequestParam(value = "sugarMax", required = false) BigDecimal sugarMax,
-            @RequestParam(value = "q", required = false) String query
+            @RequestParam(value = "kcalMin", required = false) BigDecimal kcalMin,
+            @RequestParam(value = "kcalMax", required = false) BigDecimal kcalMax,
+            @RequestParam(value = "q", required = false) String query,
+            @RequestParam(value = "sort", required = false) String sort
     );
 }
