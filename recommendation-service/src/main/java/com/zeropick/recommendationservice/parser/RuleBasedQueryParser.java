@@ -23,14 +23,22 @@ public class RuleBasedQueryParser {
             "말티톨", "나한과", "사카린", "소르비톨"
     );
 
-    // 2. 카테고리 매핑 사전 (자연어 키워드 -> product_db 5대 표준 카테고리)
+    // 2. 카테고리 매핑 사전 (우선순위: 긴 복합어 및 세부 카테고리 -> 일반 포괄 카테고리)
     private static final Map<String, String> CATEGORY_MAP = new LinkedHashMap<>();
     static {
-        // [간식/디저트]
+        // [1] 복합/특정 키워드 우선 매칭
+        CATEGORY_MAP.put("프로틴바", "간식/디저트");
+        CATEGORY_MAP.put("프로틴 드링크", "음료");
+        CATEGORY_MAP.put("프로틴", "건강기능식품");
+        CATEGORY_MAP.put("단백질", "건강기능식품");
+        CATEGORY_MAP.put("유산균", "건강기능식품");
+        CATEGORY_MAP.put("영양제", "건강기능식품");
+        CATEGORY_MAP.put("건강기능식품", "건강기능식품");
+
+        // [2] 간식/디저트
         CATEGORY_MAP.put("초콜릿", "간식/디저트");
         CATEGORY_MAP.put("초코", "간식/디저트");
         CATEGORY_MAP.put("팝콘", "간식/디저트");
-        CATEGORY_MAP.put("프로틴바", "간식/디저트");
         CATEGORY_MAP.put("웨하스", "간식/디저트");
         CATEGORY_MAP.put("캔디", "간식/디저트");
         CATEGORY_MAP.put("사탕", "간식/디저트");
@@ -40,15 +48,7 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("베이커리", "간식/디저트");
         CATEGORY_MAP.put("디저트", "간식/디저트");
 
-        // [음료]
-        CATEGORY_MAP.put("프로틴 드링크", "음료");
-        CATEGORY_MAP.put("커피", "음료");
-        CATEGORY_MAP.put("라떼", "음료");
-        CATEGORY_MAP.put("주스", "음료");
-        CATEGORY_MAP.put("차", "음료");
-        CATEGORY_MAP.put("음료", "음료");
-
-        // [탄산]
+        // [3] 탄산 (일반 '음료'보다 먼저 매칭되어 "탄산 음료" 질의 시 탄산으로 분류)
         CATEGORY_MAP.put("스파클링", "탄산");
         CATEGORY_MAP.put("탄산수", "탄산");
         CATEGORY_MAP.put("에이드", "탄산");
@@ -56,16 +56,17 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("사이다", "탄산");
         CATEGORY_MAP.put("탄산", "탄산");
 
-        // [조미료/소스]
+        // [4] 일반 음료
+        CATEGORY_MAP.put("커피", "음료");
+        CATEGORY_MAP.put("라떼", "음료");
+        CATEGORY_MAP.put("주스", "음료");
+        CATEGORY_MAP.put("차", "음료");
+        CATEGORY_MAP.put("음료", "음료");
+
+        // [5] 조미료/소스
         CATEGORY_MAP.put("시럽", "조미료/소스");
         CATEGORY_MAP.put("소스", "조미료/소스");
         CATEGORY_MAP.put("조미료", "조미료/소스");
-
-        // [건강기능식품]
-        CATEGORY_MAP.put("유산균", "건강기능식품");
-        CATEGORY_MAP.put("영양제", "건강기능식품");
-        CATEGORY_MAP.put("단백질", "건강기능식품");
-        CATEGORY_MAP.put("건강기능식품", "건강기능식품");
     }
 
     // 3. 당류/표시유형 추출 정규식
