@@ -23,11 +23,7 @@ public class ProductDetailController {
         return productDetailService.compare(ids);
     }
 
-<<<<<<< Updated upstream
-    @GetMapping("/{id}")
-=======
     @GetMapping("/{id:[0-9]+}")
->>>>>>> Stashed changes
     public ProductDetailResponse getDetail(@PathVariable Long id) {
         return productDetailService.getDetail(id);
     }
