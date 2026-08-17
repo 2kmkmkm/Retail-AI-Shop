@@ -12,6 +12,8 @@ import com.zeropick.productservice.repository.ProductSweetenerRepository;
 import com.zeropick.productservice.repository.SweetenerRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,6 +34,24 @@ public class ProductDetailService {
         this.productSweetenerRepository = productSweetenerRepository;
         this.productAllergenRepository = productAllergenRepository;
         this.sweetenerRepository = sweetenerRepository;
+    }
+
+    public List<ProductDetailResponse> compare(String idsParam) {
+        List<Long> ids = Arrays.stream(idsParam.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        List<ProductDetailResponse> results = new ArrayList<>();
+        for (Long id : ids) {
+            try {
+                results.add(getDetail(id));
+            } catch (ProductNotFoundException e) {
+                // 존재하지 않는 id는 조용히 스킵
+            }
+        }
+        return results;
     }
 
     public ProductDetailResponse getDetail(Long id) {
