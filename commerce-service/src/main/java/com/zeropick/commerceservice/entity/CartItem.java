@@ -19,6 +19,7 @@ import org.hibernate.annotations.Check;
 
 import java.time.LocalDateTime;
 
+@SuppressWarnings("deprecation")
 @Getter
 @Entity
 @Table(
