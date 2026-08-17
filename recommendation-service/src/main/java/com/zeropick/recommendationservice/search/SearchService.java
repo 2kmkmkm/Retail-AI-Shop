@@ -35,7 +35,7 @@ public class SearchService {
         long startTime = System.currentTimeMillis();
         String query = request != null ? request.getQuery() : "";
 
-        // 1. LLM / Fallback 질의 조건 파싱[cite: 11, 15]
+        // 1. LLM / Fallback 질의 조건 파싱
         LlmParseResult parseResult = llmQueryService.extractCondition(query);
         SearchCondition condition = parseResult.getCondition();
         boolean usedFallback = parseResult.isUsedFallback();
@@ -43,7 +43,7 @@ public class SearchService {
         // 지표 카운트 누적
         metricsService.incrementChatRequest(usedFallback);
 
-        // 2. product-service 상품 목록 조회[cite: 15]
+        // 2. product-service 상품 목록 조회
         List<ProductResponse> allProducts;
         try {
             allProducts = productServiceClient.getProducts(
@@ -64,7 +64,7 @@ public class SearchService {
             allProducts = Collections.emptyList();
         }
 
-        // 3. 메모리 레벨 2차 하드 필터링 (품질 목표 0% 보장)[cite: 15]
+        // 3. 메모리 레벨 2차 하드 필터링 (품질 목표 0% 보장)
         List<ProductResponse> filteredProducts = allProducts.stream()
                 .filter(p -> {
                     if (condition.getSweetenerExclude() == null) return true;

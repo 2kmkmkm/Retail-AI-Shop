@@ -39,6 +39,7 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("건강기능식품", "건강기능식품");
 
         // [2] 간식/디저트
+        CATEGORY_MAP.put("아이스크림", "간식/디저트");
         CATEGORY_MAP.put("초콜릿", "간식/디저트");
         CATEGORY_MAP.put("초코", "간식/디저트");
         CATEGORY_MAP.put("팝콘", "간식/디저트");
@@ -51,13 +52,14 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("베이커리", "간식/디저트");
         CATEGORY_MAP.put("디저트", "간식/디저트");
 
-        // [3] 탄산 (일반 '음료'보다 먼저 매칭되어 "탄산 음료" 질의 시 탄산으로 분류)
-        CATEGORY_MAP.put("스파클링", "탄산");
-        CATEGORY_MAP.put("탄산수", "탄산");
-        CATEGORY_MAP.put("에이드", "탄산");
-        CATEGORY_MAP.put("콜라", "탄산");
-        CATEGORY_MAP.put("사이다", "탄산");
-        CATEGORY_MAP.put("탄산", "탄산");
+        // [3] 탄산 계열 — 상품 DB 카테고리는 "음료"뿐이므로 음료로 매핑한다
+        //     ("탄산" 카테고리는 DB에 없어 exact match 필터에서 0건이 된다)
+        CATEGORY_MAP.put("스파클링", "음료");
+        CATEGORY_MAP.put("탄산수", "음료");
+        CATEGORY_MAP.put("에이드", "음료");
+        CATEGORY_MAP.put("콜라", "음료");
+        CATEGORY_MAP.put("사이다", "음료");
+        CATEGORY_MAP.put("탄산", "음료");
 
         // [4] 일반 음료
         CATEGORY_MAP.put("커피", "음료");
@@ -72,15 +74,21 @@ public class RuleBasedQueryParser {
         CATEGORY_MAP.put("조미료", "조미료/소스");
     }
 
+    // 상품명에 그대로 등장하지 않는 분류 일반어 — query(이름 검색)로 넘기지 않는다
+    private static final Set<String> GENERIC_CATEGORY_WORDS =
+            Set.of("음료", "디저트", "베이커리", "조미료", "건강기능식품", "영양제");
+
     // 4. 당류/표시유형 추출 정규식
-    private static final Pattern SUGAR_ZERO_PATTERN = Pattern.compile("(무당|무당류|제로|0g|당류\\s*0|무가당|무설탕|슈가프리)");
+    //    "0g"는 앞에 숫자가 없을 때만 매칭 ("10g"의 부분 문자열 오탐 방지),
+    //    "당류 0"은 뒤에 숫자/소수점이 없을 때만 매칭 ("당류 0.5g" 오탐 방지)
+    private static final Pattern SUGAR_ZERO_PATTERN = Pattern.compile("(무당|무당류|제로|(?<!\\d)0g|당류\\s*0(?![.\\d])|무가당|무설탕|슈가프리)");
     private static final Pattern SUGAR_LOW_PATTERN = Pattern.compile("(저당|저당류)");
 
-    // 5. 칼로리 추출 정규식
-    private static final Pattern KCAL_PATTERN = Pattern.compile("(\\d+)\\s*(kcal|칼로리)\\s*(이하|미만)?", Pattern.CASE_INSENSITIVE);
+    // 5. 칼로리 추출 정규식 — "이상"은 하한(kcalMin)으로 구분 처리한다
+    private static final Pattern KCAL_PATTERN = Pattern.compile("(\\d+)\\s*(kcal|칼로리)\\s*(이하|미만|이상|넘는)?", Pattern.CASE_INSENSITIVE);
 
-    // 6. 금액 추출 정규식
-    private static final Pattern PRICE_PATTERN = Pattern.compile("(\\d+)([천만])?\\s*원?\\s*(이하|미만|까지)?");
+    // 6. 금액 추출 정규식 — "원"을 필수로 요구해 "500ml" 같은 용량 수치의 오추출을 막는다
+    private static final Pattern PRICE_PATTERN = Pattern.compile("(\\d+)\\s*([천만])?\\s*원\\s*(이하|미만|까지)?");
 
     /**
      * 입력된 자연어 질의를 파싱하여 조건 DTO로 반환
@@ -117,12 +125,19 @@ public class RuleBasedQueryParser {
             }
         }
 
-        // 3. 칼로리 상한(kcalMax) 추출
+        // 3. 칼로리 상한/하한 추출 — "이상·넘는"은 하한(kcalMin), 그 외는 상한(kcalMax)
         BigDecimal kcalMax = null;
+        BigDecimal kcalMin = null;
         Matcher kcalMatcher = KCAL_PATTERN.matcher(remainingText);
         if (kcalMatcher.find()) {
             try {
-                kcalMax = new BigDecimal(kcalMatcher.group(1));
+                BigDecimal value = new BigDecimal(kcalMatcher.group(1));
+                String bound = kcalMatcher.group(3);
+                if ("이상".equals(bound) || "넘는".equals(bound)) {
+                    kcalMin = value;
+                } else {
+                    kcalMax = value;
+                }
                 remainingText = remainingText.replace(kcalMatcher.group(), " ");
             } catch (NumberFormatException ignored) {}
         }
@@ -138,14 +153,19 @@ public class RuleBasedQueryParser {
             sugarMax = BigDecimal.valueOf(5.0); // 5.0g 이하 (저당)
         }
 
-        // 6. 카테고리 및 검색 키워드(query) 추출
+        // 6. 카테고리 및 검색 키워드(query) 추출.
+        //    "콜라"처럼 상품명에 실제로 들어가는 단어만 query 로 넘긴다.
+        //    "음료" 같은 분류 일반어를 query 로 넘기면 이름 contains 필터가 되어
+        //    카테고리 전체가 0건으로 걸러진다 (예: "음료 3천원 이하" → 0건).
         String category = null;
         String query = null;
         for (Map.Entry<String, String> entry : CATEGORY_MAP.entrySet()) {
             String keyword = entry.getKey();
             if (remainingText.contains(keyword)) {
                 category = entry.getValue();
-                query = keyword;
+                if (!GENERIC_CATEGORY_WORDS.contains(keyword)) {
+                    query = keyword;
+                }
                 break;
             }
         }
@@ -155,7 +175,7 @@ public class RuleBasedQueryParser {
                 .sweetenerExclude(sweetenerExclude)
                 .allergenExclude(allergenExclude)
                 .sugarMax(sugarMax)
-                .kcalMin(null)
+                .kcalMin(kcalMin)
                 .kcalMax(kcalMax)
                 .maxPrice(maxPrice)
                 .query(query)
@@ -163,7 +183,8 @@ public class RuleBasedQueryParser {
     }
 
     /**
-     * 금액 단위("천원", "만원", "원") 및 "이하/미만" 패턴 분석
+     * 금액 단위("천원", "만원", "원") 및 "이하/미만" 패턴 분석.
+     * 패턴이 "원"을 필수로 요구하므로 "500ml" 같은 용량 수치는 매칭되지 않는다.
      */
     private Integer extractPrice(String text) {
         Matcher m = PRICE_PATTERN.matcher(text.replace(",", ""));
@@ -171,22 +192,18 @@ public class RuleBasedQueryParser {
         while (m.find()) {
             String numStr = m.group(1);
             String unit = m.group(2);
-            String suffix = m.group(3);
 
-            // "이하/미만/까지" 접미사가 있거나 "원" 단위가 붙은 경우 금액으로 파싱
-            if (suffix != null || text.contains("원")) {
-                try {
-                    int price = Integer.parseInt(numStr);
-                    if ("천".equals(unit)) {
-                        price *= 1000;
-                    } else if ("만".equals(unit)) {
-                        price *= 10000;
-                    }
-                    if (price >= 100) { // 100원 이상의 값만 유효한 가격으로 채택
-                        return price;
-                    }
-                } catch (NumberFormatException ignored) {}
-            }
+            try {
+                int price = Integer.parseInt(numStr);
+                if ("천".equals(unit)) {
+                    price *= 1000;
+                } else if ("만".equals(unit)) {
+                    price *= 10000;
+                }
+                if (price >= 100) { // 100원 이상의 값만 유효한 가격으로 채택
+                    return price;
+                }
+            } catch (NumberFormatException ignored) {}
         }
         return null;
     }
