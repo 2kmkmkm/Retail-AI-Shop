@@ -25,12 +25,12 @@ public class ProductAdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9]+}")
     public Product update(@PathVariable Long id, @Valid @RequestBody ProductAdminRequest request) {
         return productAdminService.update(id, request);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         productAdminService.delete(id);
