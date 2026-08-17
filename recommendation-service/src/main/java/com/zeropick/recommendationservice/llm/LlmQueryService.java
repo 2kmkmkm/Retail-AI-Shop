@@ -57,10 +57,10 @@ public class LlmQueryService {
 
         // 2초 타임아웃이 적용된 HTTP 클라이언트 구성
         HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(2))
+                .connectTimeout(Duration.ofSeconds(5))
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(Duration.ofSeconds(2));
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
 
         RestClient restClient = RestClient.builder()
                 .baseUrl(apiUrl)

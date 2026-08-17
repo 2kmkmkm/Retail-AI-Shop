@@ -7,6 +7,7 @@ import com.zeropick.recommendationservice.llm.dto.LlmParseResult;
 import com.zeropick.recommendationservice.parser.dto.SearchCondition;
 import com.zeropick.recommendationservice.search.dto.SearchRequest;
 import com.zeropick.recommendationservice.search.dto.SearchResponse;
+import com.zeropick.recommendationservice.service.MetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class SearchService {
 
     private final LlmQueryService llmQueryService;
     private final ProductServiceClient productServiceClient;
+    private final MetricsService metricsService;
 
     /**
      * POST /search 자연어 검색 처리 파이프라인 (FR-11)
@@ -37,6 +39,9 @@ public class SearchService {
         LlmParseResult parseResult = llmQueryService.extractCondition(query);
         SearchCondition condition = parseResult.getCondition();
         boolean usedFallback = parseResult.isUsedFallback();
+
+        // 지표 카운트 누적
+        metricsService.incrementChatRequest(usedFallback);
 
         // 2. product-service 상품 목록 조회[cite: 15]
         List<ProductResponse> allProducts;

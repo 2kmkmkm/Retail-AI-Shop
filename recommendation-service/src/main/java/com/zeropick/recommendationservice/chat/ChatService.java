@@ -9,6 +9,7 @@ import com.zeropick.recommendationservice.llm.LlmQueryService;
 import com.zeropick.recommendationservice.llm.dto.LlmParseResult;
 import com.zeropick.recommendationservice.parser.dto.SearchCondition;
 import com.zeropick.recommendationservice.repository.BehaviorLogRepository;
+import com.zeropick.recommendationservice.service.MetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ChatService {
     private final LlmQueryService llmQueryService;
     private final ProductServiceClient productServiceClient;
     private final BehaviorLogRepository behaviorLogRepository;
+    private final MetricsService metricsService;
 
     /**
      * POST /chat 처리 파이프라인 (FR-10)
@@ -34,6 +36,8 @@ public class ChatService {
      * 5) 추천 사유 및 챗봇 답변 생성
      */
     public ChatResponse processChat(ChatRequest request) {
+        long startTime = System.currentTimeMillis(); // 응답시간 측정 시작
+
         String message = request != null ? request.getMessage() : "";
         Long memberId = request != null ? request.getMemberId() : null;
 
@@ -41,6 +45,9 @@ public class ChatService {
         LlmParseResult parseResult = llmQueryService.extractCondition(message);
         SearchCondition condition = parseResult.getCondition();
         boolean usedFallback = parseResult.isUsedFallback();
+
+        // 지표 카운트 누적
+        metricsService.incrementChatRequest(usedFallback);
 
         // 2. product-service 상품 목록 조회 (8개 파라미터 정합성 일치)
         List<ProductResponse> allProducts;
@@ -124,6 +131,10 @@ public class ChatService {
         // 6. 전체 답변 문구 생성
         String reply = generateBotReply(condition, recommendedItems, usedFallback);
 
+        long duration = System.currentTimeMillis() - startTime; // 응답시간 계산
+        log.info("[챗봇 응답 완료] memberId={}, 추천 건수={}, usedFallback={}, 소요시간={}ms",
+                memberId, recommendedItems.size(), usedFallback, duration);
+
         return ChatResponse.builder()
                 .reply(reply)
                 .extractedCondition(condition)
@@ -184,6 +195,10 @@ public class ChatService {
             sb.append(condition.getCategory()).append(" 카테고리에서 ");
         }
         sb.append("조건에 딱 맞는 상품 ").append(items.size()).append("개를 추천해 드립니다!");
+        if (usedFallback) {
+            sb.append(" (규칙 기반 추천 결과)");
+        }
+
         return sb.toString();
     }
 }
