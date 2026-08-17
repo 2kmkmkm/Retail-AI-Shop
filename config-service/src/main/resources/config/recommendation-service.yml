@@ -63,4 +63,5 @@ resilience4j:
   timelimiter:
     instances:
       llmService:
-        timeout-duration: 2s
+        timeout-duration: 5s
+        cancel-running-future: true
