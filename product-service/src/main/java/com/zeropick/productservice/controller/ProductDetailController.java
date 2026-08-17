@@ -6,6 +6,8 @@ import com.zeropick.productservice.service.ProductDetailService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/product-service/products")
 public class ProductDetailController {
@@ -16,7 +18,12 @@ public class ProductDetailController {
         this.productDetailService = productDetailService;
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/compare")
+    public List<ProductDetailResponse> compare(@RequestParam String ids) {
+        return productDetailService.compare(ids);
+    }
+
+    @GetMapping("/{id:[0-9]+}")
     public ProductDetailResponse getDetail(@PathVariable Long id) {
         return productDetailService.getDetail(id);
     }
