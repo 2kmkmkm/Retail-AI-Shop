@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "CartAdded",
+  "namespace": "com.zeropick.event",
+  "fields": [
+    { "name": "memberId", "type": "long" },
+    { "name": "productId", "type": "long" },
+    { "name": "category", "type": "string" },
+    { "name": "qty", "type": "int" },
+    {
+      "name": "occurredAt",
+      "type": { "type": "long", "logicalType": "timestamp-millis" }
+    }
+  ]
+}
