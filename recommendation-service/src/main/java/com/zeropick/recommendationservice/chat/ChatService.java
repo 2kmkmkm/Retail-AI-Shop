@@ -195,6 +195,10 @@ public class ChatService {
             sb.append(condition.getCategory()).append(" 카테고리에서 ");
         }
         sb.append("조건에 딱 맞는 상품 ").append(items.size()).append("개를 추천해 드립니다!");
+        if (usedFallback) {
+            sb.append(" (규칙 기반 추천 결과)");
+        }
+
         return sb.toString();
     }
 }
