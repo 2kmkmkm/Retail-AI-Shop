@@ -3,10 +3,12 @@ package com.zeropick.recommendationservice.service;
 import com.zeropick.recommendationservice.client.ProductServiceClient;
 import com.zeropick.recommendationservice.client.dto.ProductResponse;
 import com.zeropick.recommendationservice.domain.BehaviorLog;
+import com.zeropick.recommendationservice.domain.Preference;
 import com.zeropick.recommendationservice.domain.RecoResult;
 import com.zeropick.recommendationservice.dto.RecoDetailResponse;
 import com.zeropick.recommendationservice.dto.RecoResponse;
 import com.zeropick.recommendationservice.repository.BehaviorLogRepository;
+import com.zeropick.recommendationservice.repository.PreferenceRepository;
 import com.zeropick.recommendationservice.repository.RecoResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +27,7 @@ public class RecommendationService {
 
     private final BehaviorLogRepository behaviorLogRepository;
     private final RecoResultRepository recoResultRepository;
-
+    private final PreferenceRepository preferenceRepository;
     private final ProductServiceClient productServiceClient;
 
     /**
@@ -38,15 +40,12 @@ public class RecommendationService {
         // 1. 회원의 모든 행동 로그 조회
         List<BehaviorLog> logs = behaviorLogRepository.findByMemberIdOrderByOccurredAtDesc(memberId);
 
-        // 행동 로그가 없는 경우 (콜드 스타트) 기존 추천 결과가 있다면 반환, 없으면 빈 목록
+        // 2. 행동 로그가 없는 경우 (콜드 스타트) -> 선호도(Preference) 기반 추천 생성
         if (logs.isEmpty()) {
-            return recoResultRepository.findByMemberIdOrderByRankNoAsc(memberId).stream()
-                    .limit(3)
-                    .map(RecoResponse::from)
-                    .collect(Collectors.toList());
+            return generatePreferenceBasedRecommendations(memberId);
         }
 
-        // 2. 상품별 점수 누적 합산 및 추천 사유 생성[cite: 1]
+        // 3. 행동 로그 기반 점수 누적 합산 및 추천 사유 생성
         Map<Long, Double> productScores = new HashMap<>();
         Map<Long, String> productReasons = new HashMap<>();
 
@@ -55,15 +54,13 @@ public class RecommendationService {
             if (productId == null) continue;
 
             double weight = switch (logItem.getEventType()) {
-                case "PRODUCT_VIEWED" -> 1.0;
                 case "ORDER_COMPLETED" -> 50.0;
-                case "CART_ADDED" -> 0.0;
+                case "PRODUCT_VIEWED" -> 1.0;
                 default -> 0.0;
-            }; //[cite: 1]
+            };
 
             productScores.put(productId, productScores.getOrDefault(productId, 0.0) + weight);
 
-            // 우선순위가 높은 행동을 추천 사유로 지정
             if ("ORDER_COMPLETED".equals(logItem.getEventType())) {
                 productReasons.put(productId, "최근 구매한 상품 기반 추천");
             } else if (!productReasons.containsKey(productId)) {
@@ -71,14 +68,19 @@ public class RecommendationService {
             }
         }
 
-        // 3. 점수 내림차순 정렬 후 상위 3개(TOP 3)만 추출
+        // 4. 점수 내림차순 정렬 후 상위 3개(TOP 3) 추출
         List<Map.Entry<Long, Double>> sortedList = productScores.entrySet().stream()
                 .filter(e -> e.getValue() > 0)
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                .limit(3) // 상위 3개로 제한
+                .limit(3)
                 .toList();
 
-        // 4. RecoResult 엔티티 리스트 생성 및 랭킹 부여 (1~3위)
+        // 행동 점수가 모두 0점인 경우에도 선호도 기반으로 추천
+        if (sortedList.isEmpty()) {
+            return generatePreferenceBasedRecommendations(memberId);
+        }
+
+        // 5. RecoResult 엔티티 리스트 생성 및 랭킹 부여
         List<RecoResult> newResults = new ArrayList<>();
         int rank = 1;
         for (Map.Entry<Long, Double> entry : sortedList) {
@@ -91,24 +93,89 @@ public class RecommendationService {
                     .build());
         }
 
-        // 5. DB 갱신: 기존 reco_result 삭제 후 새 결과 일괄 저장
+        // 6. DB 갱신: 기존 reco_result 삭제 후 새 결과 일괄 저장
         recoResultRepository.deleteByMemberId(memberId);
         List<RecoResult> saved = recoResultRepository.saveAll(newResults);
 
         long duration = System.currentTimeMillis() - startTime;
-        log.info("[추천 계산 완료] memberId={}, 추천 상품 수={}, 소요시간={}ms", memberId, saved.size(), duration);
+        log.info("[행동 로그 기반 추천 완료] memberId={}, 추천 상품 수={}, 소요시간={}ms", memberId, saved.size(), duration);
 
-        // 6. DTO 변환 반환
         return saved.stream()
                 .map(RecoResponse::from)
                 .collect(Collectors.toList());
     }
 
     /**
+     * [콜드 스타트 방어] 선호도 기반 추천 결과 생성 및 저장
+     */
+    @Transactional
+    public List<RecoResponse> generatePreferenceBasedRecommendations(Long memberId) {
+        Optional<Preference> prefOpt = preferenceRepository.findById(memberId);
+
+        String category = null;
+        String excludeSweetener = null;
+        String excludeAllergen = null;
+
+        if (prefOpt.isPresent()) {
+            Preference pref = prefOpt.get();
+
+            // 정확한 Getter를 통해 복합키 값 추출
+            if (pref.getCategories() != null && !pref.getCategories().isEmpty()) {
+                var firstCat = pref.getCategories().get(0);
+                if (firstCat != null && firstCat.getId() != null) {
+                    category = firstCat.getId().getCategory();
+                }
+            }
+            if (pref.getExcludedSweeteners() != null && !pref.getExcludedSweeteners().isEmpty()) {
+                var firstSweetener = pref.getExcludedSweeteners().get(0);
+                if (firstSweetener != null && firstSweetener.getId() != null) {
+                    excludeSweetener = firstSweetener.getId().getSweetener();
+                }
+            }
+            if (pref.getAllergens() != null && !pref.getAllergens().isEmpty()) {
+                var firstAllergen = pref.getAllergens().get(0);
+                if (firstAllergen != null && firstAllergen.getId() != null) {
+                    excludeAllergen = firstAllergen.getId().getAllergen();
+                }
+            }
+        }
+
+        log.info("[콜드스타트 추천 계산] memberId={}, category={}, excludeSweetener={}, excludeAllergen={}",
+                memberId, category, excludeSweetener, excludeAllergen);
+
+        List<ProductResponse> products;
+        try {
+            products = productServiceClient.getProducts(
+                    category, excludeSweetener, excludeAllergen,
+                    null, null, null, null, null
+            );
+            if (products == null) products = Collections.emptyList();
+        } catch (Exception e) {
+            log.error("[콜드스타트] product-service 조회 실패: {}", e.getMessage());
+            products = Collections.emptyList();
+        }
+
+        List<RecoResult> newResults = new ArrayList<>();
+        int rank = 1;
+        for (ProductResponse p : products.stream().limit(3).toList()) {
+            newResults.add(RecoResult.builder()
+                    .memberId(memberId)
+                    .productId(p.getId())
+                    .rankNo(rank++)
+                    .score(BigDecimal.valueOf(10.0)) // 기본 온보딩 추천 점수
+                    .reason(category != null ? "선호 카테고리(" + category + ") 맞춤 추천" : "온보딩 선호 맞춤 추천")
+                    .build());
+        }
+
+        recoResultRepository.deleteByMemberId(memberId);
+        List<RecoResult> saved = recoResultRepository.saveAll(newResults);
+        return saved.stream().map(RecoResponse::from).collect(Collectors.toList());
+    }
+
+    /**
      * 추천 결과에 product-service의 상품 상세 정보를 결합하여 반환 (Enrichment)
      */
     public List<RecoDetailResponse> getDetailedRecommendations(Long memberId) {
-        // 1. 기존 추천 결과(점수/랭킹) 조회
         List<RecoResult> recoResults = recoResultRepository.findByMemberIdOrderByRankNoAsc(memberId);
         if (recoResults.isEmpty()) {
             calculateAndGetRecommendations(memberId);
@@ -119,12 +186,10 @@ public class RecommendationService {
             return Collections.emptyList();
         }
 
-        // 2. 추천 상품 ID 목록 추출
         List<Long> productIds = recoResults.stream()
                 .map(RecoResult::getProductId)
                 .toList();
 
-        // 3. OpenFeign으로 product-service 다건 조회 호출
         Map<Long, ProductResponse> productMap = new HashMap<>();
         try {
             List<ProductResponse> products = productServiceClient.getProductsByIds(productIds);
@@ -133,10 +198,8 @@ public class RecommendationService {
             }
         } catch (Exception e) {
             log.error("[Feign 실패] product-service 호출 실패: {}", e.getMessage());
-            // product-service 호출 실패 시에도 기본 점수 정보는 내려갈 수 있도록 fallback 처리
         }
 
-        // 4. 상세 응답 매핑
         return recoResults.stream()
                 .map(r -> RecoDetailResponse.of(r, productMap.get(r.getProductId())))
                 .collect(Collectors.toList());
