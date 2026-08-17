@@ -10,14 +10,27 @@ export function StoreProvider({ children }) {
   const [prefs, setPrefsState] = useState(() => JSON.parse(localStorage.getItem('zp_prefs') ||
     '{"banSw":[],"banAllergen":[],"cats":[],"priceMin":0,"priceMax":100000}'))
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('zp_cart') || '{}'))
+  const [cartItemIds, setCartItemIds] = useState(() => JSON.parse(localStorage.getItem('zp_cart_ids') || '{}'))
   const [compare, setCompare] = useState([])
   const [toast, setToast] = useState(null)
   const [mock, setMockState] = useState(api.isMock())
 
   useEffect(() => api.onMockChange(setMockState), [])
   useEffect(() => { localStorage.setItem('zp_cart', JSON.stringify(cart)) }, [cart])
+  useEffect(() => { localStorage.setItem('zp_cart_ids', JSON.stringify(cartItemIds)) }, [cartItemIds])
   useEffect(() => { localStorage.setItem('zp_prefs', JSON.stringify(prefs)) }, [prefs])
   useEffect(() => { sessionStorage.setItem('zp_member', JSON.stringify(member)) }, [member])
+
+  useEffect(() => {
+    if (!member?.memberId) return
+    let active = true
+    api.fetchCart(member.memberId).then((items) => {
+      if (!active || !Array.isArray(items)) return
+      setCart(Object.fromEntries(items.map((item) => [item.productId, item.qty])))
+      setCartItemIds(Object.fromEntries(items.map((item) => [item.productId, item.id])))
+    }).catch(() => {})
+    return () => { active = false }
+  }, [member?.memberId])
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -33,7 +46,12 @@ export function StoreProvider({ children }) {
   const addCart = useCallback((product, qty = 1) => {
     setCart((c) => ({ ...c, [product.id]: (c[product.id] || 0) + qty }))
     emit('CART_ADDED', product, { qty })
-    api.syncCartAdd(member?.memberId || 1, product.id, qty)  // 백엔드가 cart_item 저장 + 이벤트 발행
+    if (member?.memberId) {
+      api.syncCartAdd(member.memberId, product.id, qty).then((item) => {
+        setCart((c) => ({ ...c, [item.productId]: item.qty }))
+        setCartItemIds((ids) => ({ ...ids, [item.productId]: item.id }))
+      }).catch(() => {})
+    }
     showToast(`🛒 ${product.name.slice(0, 18)} 담았어요`)
   }, [emit, showToast, member])
 
@@ -49,7 +67,7 @@ export function StoreProvider({ children }) {
   const value = {
     member, setMember,
     prefs, setPrefs,
-    cart, setCart, addCart,
+    cart, setCart, cartItemIds, setCartItemIds, addCart,
     compare, setCompare, toggleCompare,
     toast, showToast,
     emit, mock,
