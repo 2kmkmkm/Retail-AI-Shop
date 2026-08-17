@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 @Service
@@ -77,12 +78,13 @@ public class PreferenceService {
                 .memberId(preference.getMemberId())
                 .priceMin(priceMin)
                 .priceMax(priceMax)
+                .updatedAt(LocalDateTime.now())
                 .categories(preference.getCategories())
                 .excludedSweeteners(preference.getExcludedSweeteners())
                 .allergens(preference.getAllergens())
                 .build();
 
-        Preference saved = preferenceRepository.save(toSave);
+        Preference saved = preferenceRepository.saveAndFlush(toSave);
         return PreferenceResponse.from(saved);
     }
 
@@ -94,6 +96,7 @@ public class PreferenceService {
                         .memberId(memberId)
                         .priceMin(0)
                         .priceMax(100000)
+                        .updatedAt(LocalDateTime.now())
                         .categories(new ArrayList<>())
                         .excludedSweeteners(new ArrayList<>())
                         .allergens(new ArrayList<>())
