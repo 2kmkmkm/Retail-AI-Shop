@@ -10,6 +10,6 @@ public interface ProductClient {
     @GetMapping("/product-service/products/{id}")
     ProductSummary getProduct(@PathVariable("id") Long id);
 
-    record ProductSummary(Long id, String category) {
+    record ProductSummary(Long id, String name, Integer price, String category) {
     }
 }
