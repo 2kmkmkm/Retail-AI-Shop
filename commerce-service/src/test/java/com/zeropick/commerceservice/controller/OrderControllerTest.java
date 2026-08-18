@@ -8,6 +8,7 @@ import com.zeropick.commerceservice.entity.Order;
 import com.zeropick.commerceservice.entity.OrderStatus;
 import com.zeropick.commerceservice.exception.ProductNotFoundException;
 import com.zeropick.commerceservice.exception.StockDeductionFailedException;
+import com.zeropick.commerceservice.exception.StockRestoreFailedException;
 import com.zeropick.commerceservice.repository.MemberRepository;
 import com.zeropick.commerceservice.repository.OrderRepository;
 import org.apache.avro.generic.GenericRecord;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -272,6 +274,76 @@ class OrderControllerTest {
         verifyNoInteractions(productStockService);
     }
 
+    @Test
+    void cancelsPendingOrderWithoutRestoringStock() throws Exception {
+        long orderId = createOrder();
+
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        verifyNoInteractions(productStockService);
+        assertThat(orderRepository.findById(orderId).orElseThrow().getStatus())
+                .isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void cancelsPaidOrderAndRestoresEveryItemStock() throws Exception {
+        long orderId = createOrder();
+        payOrder(orderId, "카카오페이");
+        clearInvocations(productStockService, kafkaTemplate);
+
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.paymentMethod").value("카카오페이"));
+
+        verify(productStockService).restore(10L, 2);
+        verify(productStockService).restore(20L, 3);
+        verify(productStockService, never()).deduct(any(Long.class), any(Integer.class));
+
+        Order cancelledOrder = orderRepository.findById(orderId).orElseThrow();
+        assertThat(cancelledOrder.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(cancelledOrder.getPaymentMethod()).isEqualTo("카카오페이");
+    }
+
+    @Test
+    void rejectsRepeatedCancellationAndMissingOrder() throws Exception {
+        long orderId = createOrder();
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", orderId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", orderId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_ORDER_STATUS"));
+
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", 999999))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+
+        verifyNoInteractions(productStockService);
+    }
+
+    @Test
+    void keepsPaidOrderAndRedeductsRestoredStockWhenCancellationFails() throws Exception {
+        long orderId = createOrder();
+        payOrder(orderId, "신용카드");
+        clearInvocations(productStockService, kafkaTemplate);
+        when(productStockService.deduct(10L, 2)).thenReturn("간식/디저트");
+        doThrow(new StockRestoreFailedException(20L, new RuntimeException("restore failed")))
+                .when(productStockService).restore(20L, 3);
+
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/cancel", orderId))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("ORDER_CANCELLATION_FAILED"));
+
+        verify(productStockService).restore(10L, 2);
+        verify(productStockService).restore(20L, 3);
+        verify(productStockService).deduct(10L, 2);
+        assertThat(orderRepository.findById(orderId).orElseThrow().getStatus())
+                .isEqualTo(OrderStatus.PAID);
+    }
+
     private long createOrder() throws Exception {
         String response = mockMvc.perform(post("/commerce-service/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -287,6 +359,15 @@ class OrderControllerTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).path("id").asLong();
+    }
+
+    private void payOrder(long orderId, String paymentMethod) throws Exception {
+        when(productStockService.deduct(10L, 2)).thenReturn("간식/디저트");
+        when(productStockService.deduct(20L, 3)).thenReturn("음료");
+        mockMvc.perform(post("/commerce-service/orders/{orderId}/pay", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("paymentMethod", paymentMethod))))
+                .andExpect(status().isOk());
     }
 
     private String json(Object value) throws Exception {
