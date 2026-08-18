@@ -208,9 +208,11 @@ export const nlSearch = (message) =>
 
 // 장바구니 서버 동기화 — 백엔드가 있으면 cart_item 저장 + cart-added 발행 트리거.
 // 실패해도 화면은 로컬 장바구니로 동작한다 (베스트에포트).
+export const fetchCart = (memberId) =>
+  api.get(`/commerce-service/carts/${memberId}`).then((res) => res.data)
 export const syncCartAdd = (memberId, productId, qty) =>
-  api.post('/commerce-service/carts', { memberId, productId, qty }).catch(() => {})
+  api.post('/commerce-service/carts', { memberId, productId, qty }).then((res) => res.data)
 export const syncCartUpdate = (cartItemId, qty) =>
-  api.put(`/commerce-service/carts/${cartItemId}`, { qty }).catch(() => {})
+  api.put(`/commerce-service/carts/${cartItemId}`, { qty }).then((res) => res.data)
 export const syncCartRemove = (cartItemId) =>
-  api.delete(`/commerce-service/carts/${cartItemId}`).catch(() => {})
+  api.delete(`/commerce-service/carts/${cartItemId}`)

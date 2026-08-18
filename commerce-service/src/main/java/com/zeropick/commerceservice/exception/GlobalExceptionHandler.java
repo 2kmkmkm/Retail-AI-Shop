@@ -28,6 +28,29 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleMemberNotFound(MemberNotFoundException exception) {
+        return notFound("MEMBER_NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(CartItemNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleCartItemNotFound(CartItemNotFoundException exception) {
+        return notFound("CART_ITEM_NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductNotFound(ProductNotFoundException exception) {
+        return notFound("PRODUCT_NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(ProductServiceUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductServiceUnavailable(ProductServiceUnavailableException exception) {
+        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
+        return ResponseEntity.status(status).body(ApiErrorResponse.of(
+                status.value(), "PRODUCT_SERVICE_UNAVAILABLE", exception.getMessage()
+        ));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception) {
         Map<String, String> errors = new LinkedHashMap<>();
@@ -38,6 +61,13 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.BAD_REQUEST;
         return ResponseEntity.badRequest().body(ApiErrorResponse.of(
                 status.value(), "INVALID_REQUEST", "요청 값이 올바르지 않습니다.", errors
+        ));
+    }
+
+    private ResponseEntity<ApiErrorResponse> notFound(String code, String message) {
+        HttpStatus status = HttpStatus.NOT_FOUND;
+        return ResponseEntity.status(status).body(ApiErrorResponse.of(
+                status.value(), code, message
         ));
     }
 }

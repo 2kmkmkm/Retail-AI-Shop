@@ -5,7 +5,7 @@ import { getProducts } from '../utils/productStore.js'
 import CheckoutModal from '../components/CheckoutModal.jsx'
 
 export default function Cart() {
-  const { cart, setCart } = useStore()
+  const { cart, setCart, cartItemIds, setCartItemIds } = useStore()
   const [checkout, setCheckout] = useState(false)
   const items = Object.entries(cart)
     .map(([id, qty]) => ({ product: getProducts().find((p) => p.id === Number(id)), qty }))
@@ -13,13 +13,18 @@ export default function Cart() {
   const total = items.reduce((a, x) => a + x.product.price * x.qty, 0)
 
   const setQty = (id, qty) => {
+    const cartItemId = cartItemIds[id]
     if (qty <= 0) {
       const { [id]: _, ...rest } = cart
       setCart(rest)
-      api.syncCartRemove(id)          // 서버 카트에서도 제거 (베스트에포트)
+      setCartItemIds((ids) => {
+        const { [id]: _removed, ...remaining } = ids
+        return remaining
+      })
+      if (cartItemId) api.syncCartRemove(cartItemId).catch(() => {})
     } else {
       setCart({ ...cart, [id]: qty })
-      api.syncCartUpdate(id, qty)     // 서버 수량 동기화
+      if (cartItemId) api.syncCartUpdate(cartItemId, qty).catch(() => {})
     }
   }
 
