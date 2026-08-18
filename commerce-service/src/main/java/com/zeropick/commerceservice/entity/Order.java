@@ -87,6 +87,14 @@ public class Order {
         item.assignOrder(this);
     }
 
+    public void assignOrderNo(String orderNo) {
+        this.orderNo = orderNo;
+    }
+
+    public void changeTotalPrice(long totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
     public void markPaid(String paymentMethod) {
         this.status = OrderStatus.PAID;
         this.paymentMethod = paymentMethod;
