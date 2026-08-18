@@ -73,15 +73,18 @@ public class LlmQueryService {
             당신은 저당/제로 식품 쇼핑몰의 질의 파서입니다. 사용자의 질문에서 검색 조건을 JSON 형식으로만 추출하세요.
             반드시 아래 JSON 구조로만 응답하세요:
             {
-              "category": "간식/디저트" | "음료" | "탄산" | "조미료/소스" | "건강기능식품" | null,
+              "category": "음료" | "간식/디저트" | "조미료/소스" | "유제품" | "육가공품" | "주식/면류" | "즉석식품" | "건강기능식품" | "기타" | null,
               "sweetenerExclude": "제외할 감미료명" | null,
               "allergenExclude": "우유" | "대두" | "밀" | "땅콩" | null,
               "sugarMax": 최대 당류(숫자) | null,
               "kcalMin": 최소 칼로리(숫자) | null,
               "kcalMax": 최대 칼로리(숫자) | null,
               "maxPrice": 최대 가격(정수 원단위) | null,
-              "query": "검색 키워드" | null
+              "query": "핵심 상품 키워드 한 단어" | null
             }
+            query 규칙: 상품명 부분일치 검색에 쓰이므로 반드시 한 단어만 넣으세요.
+            '제로/저당/무설탕' 같은 수식어는 sugarMax 로 표현되므로 query 에 포함하지 마세요.
+            (예: "아스파탐 없는 제로 콜라" → query: "콜라")
             """;
 
         Map<String, Object> requestBody = Map.of(
@@ -118,14 +121,17 @@ public class LlmQueryService {
             String content = rootNode.path("choices").get(0).path("message").path("content").asText();
             JsonNode conditionJson = objectMapper.readTree(content);
 
-            String category = conditionJson.path("category").isNull() ? null : conditionJson.path("category").asText(null);
-            String sweetenerExclude = conditionJson.path("sweetenerExclude").isNull() ? null : conditionJson.path("sweetenerExclude").asText(null);
-            String allergenExclude = conditionJson.path("allergenExclude").isNull() ? null : conditionJson.path("allergenExclude").asText(null);
-            BigDecimal sugarMax = conditionJson.path("sugarMax").isNull() ? null : BigDecimal.valueOf(conditionJson.path("sugarMax").asDouble());
-            BigDecimal kcalMin = conditionJson.path("kcalMin").isNull() ? null : BigDecimal.valueOf(conditionJson.path("kcalMin").asDouble());
-            BigDecimal kcalMax = conditionJson.path("kcalMax").isNull() ? null : BigDecimal.valueOf(conditionJson.path("kcalMax").asDouble());
-            Integer maxPrice = conditionJson.path("maxPrice").isNull() ? null : conditionJson.path("maxPrice").asInt();
-            String q = conditionJson.path("query").isNull() ? null : conditionJson.path("query").asText(null);
+            // path()는 키가 없으면 MissingNode를 반환하고 isNull()이 false라서
+            // asDouble()/asInt()가 0을 만든다(maxPrice=0 → 전 상품 탈락). get() 기반 헬퍼로 방어한다.
+            String category = textOrNull(conditionJson, "category");
+            String sweetenerExclude = textOrNull(conditionJson, "sweetenerExclude");
+            String allergenExclude = textOrNull(conditionJson, "allergenExclude");
+            BigDecimal sugarMax = decimalOrNull(conditionJson, "sugarMax");
+            BigDecimal kcalMin = decimalOrNull(conditionJson, "kcalMin");
+            BigDecimal kcalMax = decimalOrNull(conditionJson, "kcalMax");
+            JsonNode priceNode = conditionJson.get("maxPrice");
+            Integer maxPrice = (priceNode == null || priceNode.isNull()) ? null : priceNode.asInt();
+            String q = textOrNull(conditionJson, "query");
 
             return SearchCondition.builder()
                     .category(category)
@@ -141,5 +147,15 @@ public class LlmQueryService {
             log.error("[LLM 응답 JSON 파싱 실패] rawJson={}", rawJson, e);
             throw new RuntimeException("LLM JSON 응답 변환 실패", e);
         }
+    }
+
+    private static String textOrNull(JsonNode parent, String field) {
+        JsonNode n = parent.get(field);
+        return (n == null || n.isNull()) ? null : n.asText(null);
+    }
+
+    private static BigDecimal decimalOrNull(JsonNode parent, String field) {
+        JsonNode n = parent.get(field);
+        return (n == null || n.isNull() || !n.isNumber()) ? null : BigDecimal.valueOf(n.asDouble());
     }
 }
