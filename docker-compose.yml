@@ -39,6 +39,12 @@ services:
     environment:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: product-service
+        fluentd-async: "true"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
@@ -92,3 +98,7 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic order-completed --partitions 3 --replication-factor 1
       echo '토픽 생성 완료'
       "
+
+networks:
+  default:
+    name: zeropick-shared-network
