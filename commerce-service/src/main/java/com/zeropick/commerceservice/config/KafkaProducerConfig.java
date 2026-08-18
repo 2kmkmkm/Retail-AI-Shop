@@ -20,13 +20,15 @@ public class KafkaProducerConfig {
     @Bean
     public ProducerFactory<String, GenericRecord> producerFactory(
             @Value("${spring.kafka.bootstrap-servers:localhost:9092}") String bootstrapServers,
-            @Value("${spring.kafka.producer.properties.schema.registry.url:http://localhost:8085}") String schemaRegistryUrl
+            @Value("${spring.kafka.producer.properties.schema.registry.url:http://localhost:8085}") String schemaRegistryUrl,
+            @Value("${spring.kafka.producer.properties.max.block.ms:3000}") long maxBlockMs
     ) {
         Map<String, Object> properties = new HashMap<>();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
         properties.put(ProducerConfig.ACKS_CONFIG, "all");
+        properties.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, maxBlockMs);
         properties.put("schema.registry.url", schemaRegistryUrl);
         return new DefaultKafkaProducerFactory<>(properties);
     }
