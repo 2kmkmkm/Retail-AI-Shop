@@ -1,5 +1,6 @@
 package com.zeropick.commerceservice.entity;
 
+import com.zeropick.commerceservice.exception.InvalidOrderStatusException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -96,9 +97,16 @@ public class Order {
     }
 
     public void markPaid(String paymentMethod) {
+        validatePayable();
         this.status = OrderStatus.PAID;
         this.paymentMethod = paymentMethod;
         this.paidAt = LocalDateTime.now();
+    }
+
+    public void validatePayable() {
+        if (status != OrderStatus.PENDING) {
+            throw new InvalidOrderStatusException(id, status);
+        }
     }
 
     public void complete() {

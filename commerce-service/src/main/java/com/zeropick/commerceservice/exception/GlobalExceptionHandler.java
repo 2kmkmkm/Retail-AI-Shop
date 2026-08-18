@@ -38,6 +38,21 @@ public class GlobalExceptionHandler {
         return notFound("CART_ITEM_NOT_FOUND", exception.getMessage());
     }
 
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleOrderNotFound(OrderNotFoundException exception) {
+        return notFound("ORDER_NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidOrderStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidOrderStatus(InvalidOrderStatusException exception) {
+        return conflict("INVALID_ORDER_STATUS", exception.getMessage());
+    }
+
+    @ExceptionHandler(PaymentFailedException.class)
+    public ResponseEntity<ApiErrorResponse> handlePaymentFailed(PaymentFailedException exception) {
+        return conflict("PAYMENT_FAILED", exception.getMessage());
+    }
+
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleProductNotFound(ProductNotFoundException exception) {
         return notFound("PRODUCT_NOT_FOUND", exception.getMessage());
@@ -66,6 +81,13 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiErrorResponse> notFound(String code, String message) {
         HttpStatus status = HttpStatus.NOT_FOUND;
+        return ResponseEntity.status(status).body(ApiErrorResponse.of(
+                status.value(), code, message
+        ));
+    }
+
+    private ResponseEntity<ApiErrorResponse> conflict(String code, String message) {
+        HttpStatus status = HttpStatus.CONFLICT;
         return ResponseEntity.status(status).body(ApiErrorResponse.of(
                 status.value(), code, message
         ));
