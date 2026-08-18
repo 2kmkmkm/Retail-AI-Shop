@@ -109,11 +109,22 @@ public class Order {
         }
     }
 
+    public boolean isPaid() {
+        return status == OrderStatus.PAID;
+    }
+
+    public void validateCancellable() {
+        if (status != OrderStatus.PENDING && status != OrderStatus.PAID) {
+            throw new InvalidOrderStatusException(id, status);
+        }
+    }
+
     public void complete() {
         this.status = OrderStatus.COMPLETED;
     }
 
     public void cancel() {
+        validateCancellable();
         this.status = OrderStatus.CANCELLED;
     }
 

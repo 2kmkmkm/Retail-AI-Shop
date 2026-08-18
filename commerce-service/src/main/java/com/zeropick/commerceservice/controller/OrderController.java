@@ -34,4 +34,9 @@ public class OrderController {
     ) {
         return orderService.pay(orderId, request);
     }
+
+    @PostMapping("/{orderId}/cancel")
+    public OrderResponse cancel(@PathVariable Long orderId) {
+        return orderService.cancel(orderId);
+    }
 }

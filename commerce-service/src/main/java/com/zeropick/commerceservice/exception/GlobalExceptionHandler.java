@@ -53,6 +53,16 @@ public class GlobalExceptionHandler {
         return conflict("PAYMENT_FAILED", exception.getMessage());
     }
 
+    @ExceptionHandler(OrderCancellationFailedException.class)
+    public ResponseEntity<ApiErrorResponse> handleOrderCancellationFailed(
+            OrderCancellationFailedException exception
+    ) {
+        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
+        return ResponseEntity.status(status).body(ApiErrorResponse.of(
+                status.value(), "ORDER_CANCELLATION_FAILED", exception.getMessage()
+        ));
+    }
+
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleProductNotFound(ProductNotFoundException exception) {
         return notFound("PRODUCT_NOT_FOUND", exception.getMessage());

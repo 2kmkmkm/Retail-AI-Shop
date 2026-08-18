@@ -10,6 +10,7 @@ import com.zeropick.commerceservice.entity.Order;
 import com.zeropick.commerceservice.entity.OrderItem;
 import com.zeropick.commerceservice.exception.MemberNotFoundException;
 import com.zeropick.commerceservice.exception.OrderNotFoundException;
+import com.zeropick.commerceservice.exception.OrderCancellationFailedException;
 import com.zeropick.commerceservice.exception.PaymentFailedException;
 import com.zeropick.commerceservice.exception.StockDeductionFailedException;
 import com.zeropick.commerceservice.event.OrderCompletedEvent;
@@ -107,6 +108,46 @@ public class OrderService {
             ));
         }
         return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public OrderResponse cancel(Long orderId) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        order.validateCancellable();
+
+        if (order.isPaid()) {
+            restorePaidOrderStocks(order);
+        }
+        order.cancel();
+        return OrderResponse.from(order);
+    }
+
+    private void restorePaidOrderStocks(Order order) {
+        List<OrderItem> restoredItems = new ArrayList<>();
+        for (OrderItem item : order.getItems()) {
+            try {
+                productStockService.restore(item.getProductId(), item.getQty());
+                restoredItems.add(item);
+            } catch (RuntimeException exception) {
+                redeductRestoredStocks(restoredItems);
+                throw new OrderCancellationFailedException(
+                        order.getId(), item.getProductId(), exception
+                );
+            }
+        }
+    }
+
+    private void redeductRestoredStocks(List<OrderItem> restoredItems) {
+        for (int index = restoredItems.size() - 1; index >= 0; index--) {
+            OrderItem item = restoredItems.get(index);
+            try {
+                productStockService.deduct(item.getProductId(), item.getQty());
+            } catch (RuntimeException exception) {
+                log.error("주문 취소 실패 보상 중 재고 재차감에 실패했습니다: productId={}, qty={}",
+                        item.getProductId(), item.getQty(), exception);
+            }
+        }
     }
 
     private void restoreDeductedStocks(List<DeductedStock> deductedStocks) {
