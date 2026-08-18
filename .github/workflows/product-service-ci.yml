@@ -5,10 +5,13 @@ on:
     branches: [develop]
     paths:
       - 'product-service/**'
+      - '.github/workflows/product-service-ci.yml'
   push:
     branches: [develop]
     paths:
       - 'product-service/**'
+      - '.github/workflows/product-service-ci.yml'
+  workflow_dispatch:
 
 jobs:
   build-and-test:
