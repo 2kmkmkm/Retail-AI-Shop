@@ -1,5 +1,6 @@
 package com.zeropick.commerceservice.entity;
 
+import com.zeropick.commerceservice.exception.InvalidOrderStatusException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -87,10 +88,35 @@ public class Order {
         item.assignOrder(this);
     }
 
+    public void assignOrderNo(String orderNo) {
+        this.orderNo = orderNo;
+    }
+
+    public void changeTotalPrice(long totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
     public void markPaid(String paymentMethod) {
+        validatePayable();
         this.status = OrderStatus.PAID;
         this.paymentMethod = paymentMethod;
         this.paidAt = LocalDateTime.now();
+    }
+
+    public void validatePayable() {
+        if (status != OrderStatus.PENDING) {
+            throw new InvalidOrderStatusException(id, status);
+        }
+    }
+
+    public boolean isPaid() {
+        return status == OrderStatus.PAID;
+    }
+
+    public void validateCancellable() {
+        if (status != OrderStatus.PENDING && status != OrderStatus.PAID) {
+            throw new InvalidOrderStatusException(id, status);
+        }
     }
 
     public void complete() {
@@ -98,6 +124,7 @@ public class Order {
     }
 
     public void cancel() {
+        validateCancellable();
         this.status = OrderStatus.CANCELLED;
     }
 
