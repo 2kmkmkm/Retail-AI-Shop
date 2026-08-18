@@ -44,6 +44,7 @@ public class ProductAdminService {
                 request.sugarG(),
                 request.carbG()
         );
+        product.setStock(request.stock());
         applyOptionalFields(product, request);
         Product saved = productRepository.save(product);
 
