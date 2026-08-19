@@ -9,6 +9,23 @@ const TOPIC = { PRODUCT_VIEWED: 'product-viewed', CART_ADDED: 'cart-added', ORDE
 const TCLS = { PRODUCT_VIEWED: 'viewed', CART_ADDED: 'cart', ORDER_COMPLETED: 'order' }
 const COLOR = { PRODUCT_VIEWED: '#3B82F6', CART_ADDED: '#F59E0B', ORDER_COMPLETED: '#10B981' }
 
+function eventPayload(event) {
+  if (event.payload) return event.payload
+
+  // payload 필드 도입 전에 localStorage에 저장된 이벤트도 같은 형태로 표시한다.
+  const payload = {
+    memberId: event.memberId,
+    productId: event.productId,
+    category: event.cat,
+  }
+  if (event.qty != null) payload.qty = event.qty
+  if (event.unitPrice != null) payload.unitPrice = event.unitPrice
+  if (event.orderNo != null) payload.orderNo = event.orderNo
+  if (event.paymentMethod ?? event.payment) payload.paymentMethod = event.paymentMethod ?? event.payment
+  payload.occurredAt = new Date(event.at).getTime()
+  return payload
+}
+
 /* 데모용 관리자 인증 — 실서비스에서는 백엔드 관리자 계정·권한으로 대체한다 */
 const ADMIN_ID = 'admin'
 const ADMIN_PW = 'zeropick5!'
@@ -259,7 +276,7 @@ function Log({ ev }) {
                     </div>
                   </td>
                   <td className="payload">
-                    {'{'} memberId: {b.memberId}, productId: {b.productId}, category: "{b.cat}"{b.qty ? `, qty: ${b.qty}` : ''}{b.payment ? `, payment: "${b.payment}"` : ''} {'}'}
+                    {JSON.stringify(eventPayload(b))}
                   </td>
                 </tr>
               ))}
