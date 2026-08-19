@@ -7,6 +7,25 @@ export function loadEvents() {
 }
 
 export function recordEvent(type, product, extra = {}, memberId = 1) {
+  const occurredAt = Date.now()
+  const commonPayload = {
+    memberId,
+    productId: product.id,
+    category: product.cat,
+  }
+  const payload = type === 'CART_ADDED'
+    ? { ...commonPayload, qty: extra.qty, occurredAt }
+    : type === 'ORDER_COMPLETED'
+      ? {
+          ...commonPayload,
+          qty: extra.qty,
+          unitPrice: extra.unitPrice,
+          orderNo: extra.orderNo,
+          paymentMethod: extra.paymentMethod,
+          occurredAt,
+        }
+      : { ...commonPayload, occurredAt }
+
   const ev = {
     type,
     memberId,
@@ -14,7 +33,8 @@ export function recordEvent(type, product, extra = {}, memberId = 1) {
     name: product.name,
     img: product.img || '',
     cat: product.cat,
-    at: new Date().toISOString(),
+    at: new Date(occurredAt).toISOString(),
+    payload,
     ...extra,
   }
   const all = loadEvents()
