@@ -41,6 +41,7 @@ services:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=product-service
     logging:
       driver: fluentd
       options:
@@ -63,9 +64,9 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SCHEMA_REGISTRY_URL=http://schema-registry:8085
-      - SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8085
+      - SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8085
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=recommendation-service
+      - LLM_API_KEY=${LLM_API_KEY}
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
