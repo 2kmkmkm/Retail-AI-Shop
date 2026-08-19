@@ -26,7 +26,7 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.properties.schema.registry.url:http://localhost:8085}")
+    @Value("${spring.kafka.consumer.properties.schema.registry.url:http://localhost:8085}")
     private String schemaRegistryUrl;
 
     // 1. 쇼핑몰 내부 이벤트용 Avro 컨슈머 설정
