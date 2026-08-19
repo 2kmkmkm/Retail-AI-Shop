@@ -52,10 +52,14 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      - service-discovery
-      - config-service
-      - kafka
-      - schema-registry
+      service-discovery:
+        condition: service_started
+      config-service:
+        condition: service_started
+      kafka:
+        condition: service_started
+      schema-registry-init:
+        condition: service_completed_successfully
     environment:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
@@ -100,6 +104,21 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8085
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD
+
+  schema-registry-init:
+    image: python:3.12-alpine
+    container_name: schema-registry-init
+    depends_on:
+      - schema-registry
+    environment:
+      SCHEMA_REGISTRY_URL: http://schema-registry:8085
+      SCHEMA_DIR: /schemas
+    volumes:
+      - ./docs/avro:/schemas:ro
+      - ./scripts/register-avro-schemas.py:/app/register-avro-schemas.py:ro
+    command: ["python", "/app/register-avro-schemas.py"]
+    restart: "no"
 
   prometheus:
     image: prom/prometheus:latest
