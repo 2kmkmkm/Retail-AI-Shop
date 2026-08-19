@@ -140,6 +140,8 @@ services:
       - --binlog-row-image=FULL
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./scripts/pos-db-init.sql:/docker-entrypoint-initdb.d/01-pos-stock-logs.sql:ro
 
   kafka-connect:
     image: debezium/connect:2.5
@@ -163,6 +165,21 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+  cdc-connector-init:
+    image: python:3.12-alpine
+    container_name: cdc-connector-init
+    depends_on:
+      - kafka-connect
+      - pos-db
+    environment:
+      KAFKA_CONNECT_URL: http://kafka-connect:8083
+      CONNECTOR_FILE: /cdc/pos-inventory-connector.json
+    volumes:
+      - ./docs/cdc:/cdc:ro
+      - ./scripts/register-cdc-connector.py:/app/register-cdc-connector.py:ro
+    command: ["python", "/app/register-cdc-connector.py"]
+    restart: "no"
 
   prometheus:
     image: prom/prometheus:latest
