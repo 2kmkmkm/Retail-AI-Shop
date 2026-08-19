@@ -1,0 +1,17 @@
+{
+  "name": "pos-inventory-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "pos-db",
+    "database.port": "3306",
+    "database.user": "root",
+    "database.password": "root",
+    "database.server.id": "184054",
+    "topic.prefix": "pos",
+    "database.include.list": "pos_db",
+    "table.include.list": "pos_db.pos_stock_logs",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
+    "schema.history.internal.kafka.topic": "schema-changes.pos"
+  }
+}
