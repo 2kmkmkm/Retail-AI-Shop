@@ -21,8 +21,13 @@ export default function CheckoutModal({ items, onClose, clearCartAfter = false }
         items: items.map((x) => ({ productId: x.product.id, name: x.product.name, qty: x.qty, unitPrice: x.product.price })),
         totalPrice: total,
       })
-      await api.payOrder(order.id ?? order.orderId, { paymentMethod: method })
-      items.forEach((x) => emit('ORDER_COMPLETED', x.product, { qty: x.qty, payment: method }))
+      const paidOrder = await api.payOrder(order.id ?? order.orderId, { paymentMethod: method })
+      items.forEach((x) => emit('ORDER_COMPLETED', x.product, {
+        qty: x.qty,
+        unitPrice: x.product.price,
+        orderNo: paidOrder.orderNo,
+        paymentMethod: paidOrder.paymentMethod,
+      }))
       if (clearCartAfter) {
         await Promise.allSettled(Object.values(cartItemIds).map(api.syncCartRemove))
         setCart({})
