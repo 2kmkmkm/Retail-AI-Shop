@@ -2,7 +2,7 @@
 
 저당·제로 식품 전문 커머스 + 조건 기반 개인화 추천 + 상담 챗봇
 
-LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (리테일 · 난이도 중)
+LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (리테일 · 난이도 중) — 난이도 상 핵심기술인 CDC 실시간 재고 반영까지 구현
 
 ---
 
@@ -50,6 +50,8 @@ LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (�
 | Eureka / Config | 8761 / 8888 | |
 | Kafka / Schema Registry | 9092 / **8085** | 8081 충돌로 변경 |
 | Prometheus / Grafana / Zipkin | 9090 / 3000 / 9411 | |
+| 가상 POS DB (MySQL) | 3307 | 오프라인 매장 판매 로그 · binlog(ROW) 활성화 |
+| Kafka Connect (Debezium) | 8084 | POS 판매 로그를 캡처해 Kafka 로 발행 (CDC) |
 
 ## 4. 개발 계약 문서 (`docs/`)
 
@@ -67,18 +69,84 @@ LG CNS AM Inspire Camp 5기 · 2차 미니 프로젝트 · 과제 **[RTL-M]** (�
 ## 5. 로컬 실행
 
 ```bash
-# ① 네트워크 (최초 1회)
-docker network create ecommerce-network
-
-# ② 아우터 아키텍처 (Config·Eureka·Kafka·Schema Registry·DB)
-docker compose -f docker-compose.yml up -d
-
-# ③ 마이크로서비스 (Gateway 는 여기, 맨 마지막)
-docker compose -f docker-compose-ms.yml up -d
+docker compose up -d
 ```
 
-> 기동 순서 주의 — Gateway 가 Config 보다 먼저 뜨면 설정을 못 받아 500 (수업 08-07 확인).
-> 스키마는 각 서비스가 JPA 로 생성하거나 `docs/sql/` 실행.
+한 번의 명령으로 인프라와 서비스가 모두 뜬다. 초기화 컨테이너가 순서를 보장하므로
+스키마 등록이나 커넥터 등록을 손으로 할 필요가 없다.
+
+| 초기화 컨테이너 | 하는 일 |
+|---|---|
+| `kafka-topic-init` | 행동 이벤트 토픽 생성 |
+| `schema-registry-init` | Avro 스키마 3종을 Schema Registry 에 등록 (BACKWARD) |
+| `cdc-connector-init` | Debezium MySQL 소스 커넥터를 등록하고 RUNNING 까지 확인 |
+
+`pos_stock_logs` 테이블은 pos-db 최초 기동 때 `scripts/pos-db-init.sql` 로 만들어진다.
+이미 떠 있던 pos-db 가 있다면 `docker compose down` 후 다시 올려야 반영된다.
+
+로그 중앙화(EFK)는 오버레이로 따로 켠다.
+
+```bash
+docker compose -f docker-compose-efk.yml up -d
+```
+
+동작 확인
+
+```bash
+# 매장 판매를 한 건 기록하면 CDC 를 타고 재고에 반영된다
+docker exec -i pos-db mysql --default-character-set=utf8mb4 -uroot -proot pos_db   -e "INSERT INTO pos_stock_logs (store_id, member_id, product_id, category, changed_qty, event_type)
+      VALUES ('STORE_GANGNAM', 1, 1, '간식/디저트', 2, 'OFFLINE_PURCHASE');"
+
+curl http://localhost:8084/connectors/pos-inventory-connector/status
+```
+
+## 요구사항 구현 위치
+
+채점 항목이 코드 어디에 있는지 정리한다.
+
+### 핵심 요구사항
+
+| # | 요구사항 | 구현 위치 |
+|---|---|---|
+| 1 | 마이크로서비스 분리 | `product-service` · `commerce-service` · `recommendation-service` |
+| 2 | 서비스 디스커버리 | `service-discovery` (Eureka :8761) |
+| 3 | API Gateway | `apigateway-service` (:8000, `lb://` 라우팅) |
+| 4 | 설정 중앙화 | `config-service` (:8888 native) — 시크릿은 환경변수로만 주입 |
+| 5 | 동기 통신 | commerce → product 재고 확인·차감 (OpenFeign) |
+| 6 | 비동기 통신 | Kafka 행동 이벤트 3토픽 (Avro) — `commerce-service/event`, `recommendation-service/consumer` |
+| 7 | 주문·결제·재고 | `commerce-service` 주문 생성 → 모의결제(PENDING→PAID), 재고 부족 시 409 |
+| 8 | DB 분리 | 서비스별 스키마 — `docs/제로픽_ERD.dbml`, `docs/sql/` |
+| 9 | 프론트엔드 | `frontend/` (React · Vite) — 상품·장바구니·주문·프로필·관리자 |
+| 10 | AI 기능 | `recommendation-service/chat` 상담 챗봇 — LLM 실패 시 규칙 기반 폴백 |
+
+### 선택 요구사항
+
+| 항목 | 구현 위치 |
+|---|---|
+| Schema Registry (Avro) | `schema-registry` + `scripts/register-avro-schemas.py`, `docs/avro/` |
+| 모니터링 | `monitoring/prometheus.yml` + Grafana |
+| 분산 추적 | Zipkin (:9411) |
+| 로그 중앙화 | `docker-compose-efk.yml` + `efk/fluent-bit.conf` |
+| 장애 대응 | `recommendation-service/llm/LlmQueryService` — LLM 장애 시 폴백 |
+| 관리자 화면 | `frontend/src/pages/Admin.jsx` — 이벤트 로그·성과 지표 |
+
+### 난이도 상 — CDC 실시간 재고 반영
+
+오프라인 매장(POS)에서 팔린 수량을 온라인 재고에 실시간 반영한다.
+
+```
+POS DB(pos_stock_logs, binlog)
+  → Debezium MySQL 소스 커넥터 (Kafka Connect :8084)
+  → 토픽 pos.pos_db.pos_stock_logs
+  → product-service (재고 차감) · recommendation-service (오프라인 구매를 추천에 반영)
+```
+
+| 구성요소 | 위치 |
+|---|---|
+| 커넥터 설정 | `docs/cdc/pos-inventory-connector.json` |
+| 커넥터 자동 등록 | `scripts/register-cdc-connector.py` |
+| POS 테이블 | `scripts/pos-db-init.sql` |
+| 소비 | `product-service/consumer/PosCdcStockConsumer.java` · `recommendation-service/consumer/PosCdcEventConsumer.java` |
 
 ## 6. 협업 규칙
 
