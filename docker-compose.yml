@@ -36,9 +36,17 @@ services:
     depends_on:
       - service-discovery
       - config-service
+      - kafka
     environment:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: product-service
+        fluentd-async: "true"
 
   recommendation-service:
     build: ./recommendation-service
@@ -95,23 +103,6 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8085
 
-  kafka-topic-init:
-    image: confluentinc/cp-kafka:7.6.1
-    container_name: kafka-topic-init
-    depends_on:
-      - kafka
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "
-      echo 'Kafka 기동 대기 중...'
-      cub kafka-ready -b kafka:29092 1 30
-      echo '토픽 생성 중...'
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic product-viewed --partitions 3 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic cart-added --partitions 3 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic order-completed --partitions 3 --replication-factor 1
-      echo '토픽 생성 완료'
-      "
-
   pos-db:
     image: mysql:8.0
     container_name: pos-db
@@ -120,15 +111,13 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: pos_db
-      MYSQL_USER: posuser
-      MYSQL_PASSWORD: pospassword
     command:
-      - --server-id=1
+      - --server-id=184054
       - --log-bin=mysql-bin
       - --binlog-format=ROW
       - --binlog-row-image=FULL
-      - --gtid-mode=ON
-      - --enforce-gtid-consistency=ON
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
 
   kafka-connect:
     image: debezium/connect:2.5
@@ -152,3 +141,50 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - product-service
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+
+  kafka-topic-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-topic-init
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      echo 'Kafka 기동 대기 중...'
+      cub kafka-ready -b kafka:29092 1 30
+      echo '토픽 생성 중...'
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic product-viewed --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic cart-added --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic order-completed --partitions 3 --replication-factor 1
+      echo '토픽 생성 완료'
+      "
+
+networks:
+  default:
+    name: zeropick-shared-network
