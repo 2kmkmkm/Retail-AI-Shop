@@ -36,9 +36,12 @@ services:
     depends_on:
       - service-discovery
       - config-service
+      - kafka
     environment:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=product-service
     logging:
       driver: fluentd
       options:
@@ -61,9 +64,11 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_APPLICATION_JSON={"eureka":{"client":{"service-url":{"defaultZone":"http://service-discovery:8761/eureka/"}}}}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SCHEMA_REGISTRY_URL=http://schema-registry:8085
-      - SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8085
+      - SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8085
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=recommendation-service
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_API_URL=${LLM_API_URL}
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
@@ -100,6 +105,45 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8085
+
+  pos-db:
+    image: mysql:8.0
+    container_name: pos-db
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pos_db
+    command:
+      - --server-id=184054
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+  kafka-connect:
+    image: debezium/connect:2.5
+    container_name: kafka-connect
+    ports:
+      - "8084:8083"
+    depends_on:
+      - kafka
+      - schema-registry
+      - pos-db
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
 
   prometheus:
     image: prom/prometheus:latest
