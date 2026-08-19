@@ -29,6 +29,8 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.consumer.properties.schema.registry.url:http://localhost:8085}")
     private String schemaRegistryUrl;
 
+    // 1. 쇼핑몰 내부 이벤트용 Avro 컨슈머 설정
+
     /**
      * Kafka Consumer 인스턴스를 생성하는 팩토리 빈(Bean) 등록
      * - Key: String, Value: GenericRecord (Avro 역직렬화 결과 객체)
@@ -48,7 +50,7 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * @KafkaListener 어노테이션이 붙은 메서드들을 감지하고 동작시키는 컨테이너 팩토리 빈(Bean) 등록
+     * KafkaListener 메서드들을 감지하고 동작시키는 컨테이너 팩토리 빈(Bean) 등록
      * - 멀티스레드 기반의 메시지 소비 및 동시 처리를 지원
      */
     @Bean
@@ -58,4 +60,32 @@ public class KafkaConsumerConfig {
         factory.setConsumerFactory(consumerFactory());
         return factory;
     }
+
+    // 2. 가상 POS CDC(JSON) 전용 컨슈머 설정
+    /**
+     * Debezium CDC(JSON) 메시지를 String으로 읽는 컨슈머 팩토리 빈 등록
+     */
+    @Bean
+    public ConsumerFactory<String, String> stringConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "recommendation-service");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
+     * CDC 전용 리스너 컨테이너 팩토리 빈 등록
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> stringKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(stringConsumerFactory());
+        return factory;
+    }
+
 }

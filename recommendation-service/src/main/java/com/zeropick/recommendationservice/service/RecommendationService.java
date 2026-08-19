@@ -54,14 +54,14 @@ public class RecommendationService {
             if (productId == null) continue;
 
             double weight = switch (logItem.getEventType()) {
-                case "ORDER_COMPLETED" -> 50.0;
+                case "ORDER_COMPLETED", "OFFLINE_PURCHASE" -> 50.0;
                 case "PRODUCT_VIEWED" -> 1.0;
                 default -> 0.0;
             };
 
             productScores.put(productId, productScores.getOrDefault(productId, 0.0) + weight);
 
-            if ("ORDER_COMPLETED".equals(logItem.getEventType())) {
+            if ("ORDER_COMPLETED".equals(logItem.getEventType()) || "OFFLINE_PURCHASE".equals(logItem.getEventType())) {
                 productReasons.put(productId, "최근 구매한 상품 기반 추천");
             } else if (!productReasons.containsKey(productId)) {
                 productReasons.put(productId, "최근 조회/관심 상품 기반 추천");

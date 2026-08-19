@@ -51,6 +51,8 @@ public class ChatService {
 
         // 2. product-service 상품 목록 조회 (8개 파라미터 정합성 일치)
         List<ProductResponse> allProducts;
+        boolean isProductFetchFailed = false;
+
         try {
             allProducts = productServiceClient.getProducts(
                     condition.getCategory(),
@@ -66,6 +68,7 @@ public class ChatService {
                 allProducts = Collections.emptyList();
             }
         } catch (Exception e) {
+            isProductFetchFailed = true;
             log.error("[product-service 통신 오류] 상품 목록 조회 실패: {}", e.getMessage());
             allProducts = Collections.emptyList();
         }
@@ -132,8 +135,18 @@ public class ChatService {
         String reply = generateBotReply(condition, recommendedItems, usedFallback);
 
         long duration = System.currentTimeMillis() - startTime; // 응답시간 계산
-        log.info("[챗봇 응답 완료] memberId={}, 추천 건수={}, usedFallback={}, 소요시간={}ms",
-                memberId, recommendedItems.size(), usedFallback, duration);
+
+        // 7. 로그 레벨 분기 처리
+        if (isProductFetchFailed) {
+            log.warn("[챗봇 통신 실패 Fallback 응답] memberId={}, 추천 건수=0, product-service 조회 실패로 빈 결과 반환, 소요시간={}ms",
+                    memberId, duration);
+        } else if (usedFallback || recommendedItems.isEmpty()) {
+            log.warn("[챗봇 Fallback/부분 응답 완료] memberId={}, 추천 건수={}, usedFallback={}, 조건부합상품없음={}, 소요시간={}ms",
+                    memberId, recommendedItems.size(), usedFallback, recommendedItems.isEmpty(), duration);
+        } else {
+            log.info("[챗봇 정상 응답 완료] memberId={}, 추천 건수={}, 소요시간={}ms",
+                    memberId, recommendedItems.size(), duration);
+        }
 
         return ChatResponse.builder()
                 .reply(reply)
