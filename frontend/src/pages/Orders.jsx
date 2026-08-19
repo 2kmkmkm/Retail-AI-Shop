@@ -13,7 +13,7 @@ export default function Orders() {
 
   const cancel = async (o) => {
     if (!window.confirm(o.orderNo + ' 주문을 취소할까요?' + (o.status === 'PAID' ? ' (재고가 복구됩니다)' : ''))) return
-    await api.cancelOrder(o.orderId)
+    await api.cancelOrder(o.id ?? o.orderId)
     load()
   }
 

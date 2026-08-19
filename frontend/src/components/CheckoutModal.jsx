@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../context/StoreContext.jsx'
 import * as api from '../api.js'
 
-const METHODS = ['카드', '간편결제', '무통장입금']
+const METHODS = ['신용카드', '카카오페이', '토스페이', '무통장입금']
 
 export default function CheckoutModal({ items, onClose, clearCartAfter = false }) {
   const { member, emit, setCart, cartItemIds, setCartItemIds, showToast } = useStore()
-  const [method, setMethod] = useState('카드')
+  const [method, setMethod] = useState('신용카드')
   const [paying, setPaying] = useState(false)
   const nav = useNavigate()
   const total = items.reduce((a, x) => a + x.product.price * x.qty, 0)
@@ -21,7 +21,7 @@ export default function CheckoutModal({ items, onClose, clearCartAfter = false }
         items: items.map((x) => ({ productId: x.product.id, name: x.product.name, qty: x.qty, unitPrice: x.product.price })),
         totalPrice: total,
       })
-      await api.payOrder(order.orderId, { paymentMethod: method })
+      await api.payOrder(order.id ?? order.orderId, { paymentMethod: method })
       items.forEach((x) => emit('ORDER_COMPLETED', x.product, { qty: x.qty, payment: method }))
       if (clearCartAfter) {
         await Promise.allSettled(Object.values(cartItemIds).map(api.syncCartRemove))
