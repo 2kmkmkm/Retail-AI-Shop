@@ -67,6 +67,8 @@ services:
       - SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8085
       - SPRING_KAFKA_CONSUMER_GROUP_ID=recommendation-service
       - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_API_URL=${LLM_API_URL}
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
