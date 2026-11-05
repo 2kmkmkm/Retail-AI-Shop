@@ -56,7 +56,7 @@ public class ChatService {
         try {
             allProducts = productServiceClient.getProducts(
                     condition.getCategory(),
-                    condition.getSweetenerExclude(),
+                    condition.sweetenerExcludeParam(),
                     condition.getAllergenExclude(),
                     condition.getSugarMax(),
                     condition.getKcalMin(),
@@ -77,9 +77,7 @@ public class ChatService {
         List<ProductResponse> filteredProducts = allProducts.stream()
                 // 제외 감미료 2차 방어 검증 (AI 품질 목표 위반율 0% 보장)
                 .filter(p -> {
-                    if (condition.getSweetenerExclude() == null) return true;
-                    String exclude = condition.getSweetenerExclude();
-                    return p.getSweeteners() == null || !p.getSweeteners().contains(exclude);
+                    return !condition.containsExcludedSweetener(p.getSweeteners());
                 })
                 // 알레르기 성분 2차 방어 검증
                 .filter(p -> {
@@ -179,8 +177,8 @@ public class ChatService {
 
     private String generateProductReason(ProductResponse p, SearchCondition condition, Double score) {
         StringBuilder sb = new StringBuilder();
-        if (condition.getSweetenerExclude() != null) {
-            sb.append(condition.getSweetenerExclude()).append(" 무첨가, ");
+        if (condition.sweetenerExcludeParam() != null) {
+            sb.append(String.join("·", condition.getSweetenerExcludes())).append(" 무첨가, ");
         }
         if (p.getSugarG() != null) {
             sb.append("당류 ").append(p.getSugarG()).append("g, ");
@@ -201,8 +199,8 @@ public class ChatService {
         }
 
         StringBuilder sb = new StringBuilder();
-        if (condition.getSweetenerExclude() != null) {
-            sb.append("[").append(condition.getSweetenerExclude()).append(" 제외] ");
+        if (condition.sweetenerExcludeParam() != null) {
+            sb.append("[").append(String.join("·", condition.getSweetenerExcludes())).append(" 제외] ");
         }
         if (condition.getCategory() != null) {
             sb.append(condition.getCategory()).append(" 카테고리에서 ");

@@ -15,13 +15,15 @@ import java.util.regex.Pattern;
 @Component
 public class RuleBasedQueryParser {
 
-    // 1. 감미료 마스터 15종 및 주요 파생어 (긴 명칭 우선 매칭하여 부분 문자열 충돌 방지)
-    private static final List<String> SWEETENERS = List.of(
-            "효소처리스테비아", "스테비올 배당체", "나한과추출분말", "아세설팜칼륨",
-            "D-말티톨", "D-소비톨액", "아라비아검", "수크랄로스", "에리스리톨",
-            "아스파탐", "알룰로스", "자일리톨", "이소말트", "스테비아",
-            "말티톨", "나한과", "사카린", "소르비톨"
-    );
+    // 1. 감미료 언급 판정
+    //    감미료 이름(오타·약칭 포함)은 SweetenerDictionary 에서 찾고,
+    //    언급 뒤에 처음 나오는 표현이 '부정'이면 제외, '긍정'이면 제외하지 않는다.
+    //    예) "스테비아는 괜찮은데 아스파탐은 피하고 싶어" → 스테비아(괜찮) 유지, 아스파탐(피하) 제외
+    private static final Pattern SWEETENER_CUE = Pattern.compile(
+            "(?<neg>없는|없이|없고|없었|없으|없어|제외|빼|안\\s?들어|안\\s?든|안\\s?넣|무첨가|싫|시러|피하|피해|안\\s?됨|안\\s?돼|안\\s?되|말고|안\\s?좋|별로|못\\s?먹|금지)"
+            + "|(?<pos>상관\\s?없|괜찮|좋아|좋은|선호)");
+    // 언급과 판정 표현 사이에 문장이 끝나면(. ! 줄바꿈) 판정하지 않는다. '?'는 구어체에서 중간에 자주 와서 경계로 보지 않음
+    private static final Pattern SENTENCE_END = Pattern.compile("[.!\\n]");
 
     // 2. 알레르기 마스터
     private static final List<String> ALLERGENS = List.of("우유", "대두", "밀", "땅콩");
@@ -100,18 +102,24 @@ public class RuleBasedQueryParser {
 
         String remainingText = text.trim();
 
-        // 1. 제외 감미료 추출 (단일 조사 문자는 [이가은는]으로 최적화)
-        String sweetenerExclude = null;
-        for (String sweetener : SWEETENERS) {
-            Pattern excludePattern = Pattern.compile(Pattern.quote(sweetener) + "[이가은는]?\\s*(없는|제외|빼고|안들어간|안 들어간|무)");
-            Matcher matcher = excludePattern.matcher(remainingText);
-
-            if (matcher.find()) {
-                sweetenerExclude = sweetener;
-                remainingText = remainingText.replace(matcher.group(), " ");
-                break;
+        // 1. 제외 감미료 추출 — 여러 개, 오타·약칭 허용, 문맥(부정/긍정) 판정
+        List<String> mentionedExcluded = new ArrayList<>();
+        StringBuilder masked = new StringBuilder(remainingText);
+        for (String alias : SweetenerDictionary.aliases()) {
+            int from = 0;
+            int idx;
+            while ((idx = masked.indexOf(alias, from)) >= 0) {
+                int end = idx + alias.length();
+                if (isExcludedMention(remainingText, end)) {
+                    mentionedExcluded.add(alias);
+                }
+                // 같은 위치를 짧은 표현이 다시 잡지 않도록 가린다 (예: 효소처리스테비아 안의 '스테비아')
+                for (int i = idx; i < end; i++) masked.setCharAt(i, ' ');
+                from = end;
             }
         }
+        List<String> sweetenerExcludes = SweetenerDictionary.toCanonical(mentionedExcluded);
+        remainingText = masked.toString();
 
         // 2. 알레르기 제외 성분(allergenExclude) 추출
         String allergenExclude = null;
@@ -172,7 +180,7 @@ public class RuleBasedQueryParser {
 
         return SearchCondition.builder()
                 .category(category)
-                .sweetenerExclude(sweetenerExclude)
+                .sweetenerExcludes(sweetenerExcludes)
                 .allergenExclude(allergenExclude)
                 .sugarMax(sugarMax)
                 .kcalMin(kcalMin)
@@ -180,6 +188,15 @@ public class RuleBasedQueryParser {
                 .maxPrice(maxPrice)
                 .query(query)
                 .build();
+    }
+
+    /** 감미료 언급 끝 위치 뒤에서 처음 나오는 판정 표현이 부정이면 true */
+    private boolean isExcludedMention(String text, int mentionEnd) {
+        String after = text.substring(mentionEnd);
+        Matcher end = SENTENCE_END.matcher(after);
+        if (end.find()) after = after.substring(0, end.start());
+        Matcher cue = SWEETENER_CUE.matcher(after);
+        return cue.find() && cue.group("neg") != null;
     }
 
     /**
