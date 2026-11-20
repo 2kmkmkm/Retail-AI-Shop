@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeropick.recommendationservice.llm.dto.LlmParseResult;
 import com.zeropick.recommendationservice.parser.RuleBasedQueryParser;
+import com.zeropick.recommendationservice.parser.SweetenerDictionary;
 import com.zeropick.recommendationservice.parser.dto.SearchCondition;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -74,7 +76,7 @@ public class LlmQueryService {
             반드시 아래 JSON 구조로만 응답하세요:
             {
               "category": "음료" | "간식/디저트" | "조미료/소스" | "유제품" | "육가공품" | "주식/면류" | "즉석식품" | "건강기능식품" | "기타" | null,
-              "sweetenerExclude": "제외할 감미료명" | null,
+              "sweetenerExcludes": ["제외할 감미료명", ...] | null,
               "allergenExclude": "우유" | "대두" | "밀" | "땅콩" | null,
               "sugarMax": 최대 당류(숫자) | null,
               "kcalMin": 최소 칼로리(숫자) | null,
@@ -82,6 +84,8 @@ public class LlmQueryService {
               "maxPrice": 최대 가격(정수 원단위) | null,
               "query": "핵심 상품 키워드 한 단어" | null
             }
+            sweetenerExcludes 규칙: 사용자가 피하고 싶다고 한 감미료를 모두 배열로 넣으세요. 괜찮다고 한 감미료는 넣지 마세요.
+            (예: "스테비아는 괜찮은데 아스파탐이랑 수크랄로스는 싫어" → ["아스파탐", "수크랄로스"])
             query 규칙: 상품명 부분일치 검색에 쓰이므로 반드시 한 단어만 넣으세요.
             '제로/저당/무설탕' 같은 수식어는 sugarMax 로 표현되므로 query 에 포함하지 마세요.
             (예: "아스파탐 없는 제로 콜라" → query: "콜라")
@@ -124,7 +128,8 @@ public class LlmQueryService {
             // path()는 키가 없으면 MissingNode를 반환하고 isNull()이 false라서
             // asDouble()/asInt()가 0을 만든다(maxPrice=0 → 전 상품 탈락). get() 기반 헬퍼로 방어한다.
             String category = textOrNull(conditionJson, "category");
-            String sweetenerExclude = textOrNull(conditionJson, "sweetenerExclude");
+            // LLM이 배열 대신 문자열을 주거나 DB에 없는 이름(예: 소르비톨)을 줘도 사전으로 DB 정식명에 맞춘다
+            List<String> sweetenerExcludes = SweetenerDictionary.toCanonical(textListOrNull(conditionJson, "sweetenerExcludes"));
             String allergenExclude = textOrNull(conditionJson, "allergenExclude");
             BigDecimal sugarMax = decimalOrNull(conditionJson, "sugarMax");
             BigDecimal kcalMin = decimalOrNull(conditionJson, "kcalMin");
@@ -135,7 +140,7 @@ public class LlmQueryService {
 
             return SearchCondition.builder()
                     .category(category)
-                    .sweetenerExclude(sweetenerExclude)
+                    .sweetenerExcludes(sweetenerExcludes)
                     .allergenExclude(allergenExclude)
                     .sugarMax(sugarMax)
                     .kcalMin(kcalMin)
@@ -152,6 +157,19 @@ public class LlmQueryService {
     private static String textOrNull(JsonNode parent, String field) {
         JsonNode n = parent.get(field);
         return (n == null || n.isNull()) ? null : n.asText(null);
+    }
+
+    /** 배열이면 각 원소, 문자열이면 쉼표로 나눠 목록으로. 없으면 null */
+    private static List<String> textListOrNull(JsonNode parent, String field) {
+        JsonNode n = parent.get(field);
+        if (n == null || n.isNull()) return null;
+        List<String> out = new ArrayList<>();
+        if (n.isArray()) {
+            n.forEach(e -> { if (!e.isNull() && !e.asText("").isBlank()) out.add(e.asText().trim()); });
+        } else {
+            for (String part : n.asText("").split(",")) if (!part.isBlank()) out.add(part.trim());
+        }
+        return out.isEmpty() ? null : out;
     }
 
     private static BigDecimal decimalOrNull(JsonNode parent, String field) {

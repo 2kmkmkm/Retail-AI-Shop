@@ -48,7 +48,7 @@ public class SearchService {
         try {
             allProducts = productServiceClient.getProducts(
                     condition.getCategory(),
-                    condition.getSweetenerExclude(),
+                    condition.sweetenerExcludeParam(),
                     condition.getAllergenExclude(),
                     condition.getSugarMax(),
                     condition.getKcalMin(),
@@ -67,9 +67,7 @@ public class SearchService {
         // 3. 메모리 레벨 2차 하드 필터링 (품질 목표 0% 보장)
         List<ProductResponse> filteredProducts = allProducts.stream()
                 .filter(p -> {
-                    if (condition.getSweetenerExclude() == null) return true;
-                    String exclude = condition.getSweetenerExclude();
-                    return p.getSweeteners() == null || !p.getSweeteners().contains(exclude);
+                    return !condition.containsExcludedSweetener(p.getSweeteners());
                 })
                 .filter(p -> {
                     if (condition.getAllergenExclude() == null) return true;
